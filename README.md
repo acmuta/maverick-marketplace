@@ -1,7 +1,19 @@
 # Welcome to your Expo app 👋
 
-Run this command to start appwrite:
-Just run docker compose up -d in the appwrite folder
+Run this command to start Docker:
+UNIX(Linux/mac):
+docker run -it --rm \
+    --volume /var/run/docker.sock:/var/run/docker.sock \
+    --volume "$(pwd)"/appwrite:/usr/src/code/appwrite:rw \
+    --entrypoint="install" \
+    appwrite/appwrite:1.6.0
+
+Windwos(Power Shell):
+docker run -it --rm `
+    --volume /var/run/docker.sock:/var/run/docker.sock `
+    --volume ${pwd}/appwrite:/usr/src/code/appwrite:rw `
+    --entrypoint="install" `
+    appwrite/appwrite:1.6.0
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 

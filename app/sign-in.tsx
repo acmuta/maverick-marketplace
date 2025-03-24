@@ -11,6 +11,7 @@ const SignIn = () => {
     const [name, setName] = useState("");
     const [isRegistering, setIsRegistering] = useState(false);
 
+    // Validate UTA email
     const validateEmail = () => {
         if (!isValidUTAEmail(email)) {
             Alert.alert("Invalid Email", "Please use your @mavs.uta.edu email address");
@@ -19,6 +20,7 @@ const SignIn = () => {
         return true;
     };
 
+    // Handle login
     const handleLogin = async () => {
         if (!validateEmail()) return;
         
@@ -28,6 +30,7 @@ const SignIn = () => {
         }
     };
 
+    // Handle registration
     const handleRegister = async () => {
         if (!validateEmail()) return;
         
@@ -41,18 +44,14 @@ const SignIn = () => {
             return;
         }
         
-        try {
-            const success = await register(email, password, name);
-            if (success) {
-                Alert.alert("Success", "Registration successful!");
-                setIsRegistering(false);
-            }
-        } catch (error) {
-            console.error("Registration error:", error);
-            Alert.alert("Registration Failed", "An error occurred during registration.");
+        const success = await register(email, password, name);
+        if (success) {
+            Alert.alert("Success", "Registration successful!");
+            setIsRegistering(false);
         }
     };
 
+    // Toggle between login and register forms
     const toggleForm = () => {
         setIsRegistering(!isRegistering);
     };
