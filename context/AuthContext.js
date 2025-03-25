@@ -19,17 +19,23 @@ export const AuthProvider = ({ children }) => {
   const checkUserStatus = async () => {
     try {
       setIsLoading(true);
+      console.log("Checking user authentication status...");
+      
       const loggedInUser = await getCurrentUser();
-      setUser(loggedInUser);
+      console.log("Auth status result:", loggedInUser ? "User found" : "No user found");
+      
+      // Important: make sure we're setting user to null explicitly if no user is found
+      setUser(loggedInUser || null);
     } catch (error) {
       console.error('Error checking auth status:', error);
+      // Explicitly set user to null on error
       setUser(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Register a new user with @mavs.uta.edu email validation
+  // Register a new user
   const register = async (email, password, name) => {
     try {
       setIsLoading(true);
@@ -73,6 +79,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoading(true);
       await logoutUser();
+      // Important: explicitly set user to null after logout
       setUser(null);
       return true;
     } catch (error) {
@@ -93,7 +100,6 @@ export const AuthProvider = ({ children }) => {
     checkUserStatus
   };
 
-  // Return provider
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
