@@ -9,7 +9,12 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }   
+      }
     },
     "android": {
       "adaptiveIcon": {
