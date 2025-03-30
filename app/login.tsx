@@ -67,15 +67,29 @@ export default function LoginScreen() {
     setIsLoading(true);
     
     try {
+      console.log("Auth attempt:", { email, mode, endpoint: process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT });
+
       if (mode === 'login') {
         // Log in the user
-        await account.createEmailPasswordSession(email, password);
+        const session = await account.createEmailPasswordSession(email, password);
+        console.log("Session created:", session);
+
+        try {
+          const verifySession = await account.getSession('current');
+          console.log("Verified session:", verifySession);
+        } catch (sessionError) {
+          console.error("Session verification failed:", sessionError);
+        }
+
       } else {
         // Register a new user
-        await account.create(ID.unique(), email, password, name);
+        const user = await account.create(ID.unique(), email, password, name);
         
-        // Then log in the user
-        await account.createEmailPasswordSession(email, password);
+        console.log("User created:", user);
+
+        const session = await account.createEmailPasswordSession(email, password);
+        console.log("Session created:", session);
+
       }
       
       // Navigate to the main app

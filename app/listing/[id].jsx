@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Query } from 'react-native-appwrite';
 import { Image } from 'expo-image';
 import { account, databases, storage, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, USERS_COLLECTION_ID, IMAGES_BUCKET_ID } from '../../appwrite/config';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -167,6 +168,19 @@ export default function ListingDetailScreen() {
       ]);
       return;
     }
+
+    if (listing.userId === currentUser.$id) {
+      Alert.alert('Error', 'This is your own listing');
+      return;
+    }
+
+    router.push({
+      pathname: '/chat/new',
+      params: {
+        listingId: listing.$id,
+        sellerId: listing.userId
+      }
+    });
 
     if (seller) {
       const contactMessage = `Contact ${seller.displayName || 'the seller'} at:`;
@@ -330,12 +344,23 @@ export default function ListingDetailScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={handleContactSeller}
-          >
-            <Text style={styles.buttonText}>Contact Seller</Text>
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity 
+              style={[styles.button, styles.messageButton]} 
+              onPress={handleContactSeller}
+            >
+              <Ionicons name="chatbubble-outline" size={18} color="white" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Message Seller</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.button} 
+              onPress={handleContactSeller}
+            >
+              <Ionicons name="information-circle-outline" size={18} color="white" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Contact Info</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </ScrollView>
@@ -343,6 +368,29 @@ export default function ListingDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+    actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  messageButton: {
+    flex: 1,
+    marginRight: 8,
+    backgroundColor: '#4CAF50',
+  },
+  button: {
+    flex: 1,
+    backgroundColor: '#2196F3',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

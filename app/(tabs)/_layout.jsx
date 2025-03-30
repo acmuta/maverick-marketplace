@@ -1,3 +1,4 @@
+import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -19,6 +20,17 @@ export default function TabLayout() {
       />
       
       <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Messages',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles" size={size} color={color} />
+          ),
+          headerShown: false,
+        }}
+      />
+      
+      <Tabs.Screen
         name="create-listing"
         options={{
           title: 'Create',
@@ -27,13 +39,6 @@ export default function TabLayout() {
           ),
           headerTitle: 'Create New Listing',
         }}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            // Navigate to create listing screen
-            e.preventDefault();
-            navigation.navigate('create-listing');
-          },
-        })}
       />
       
       <Tabs.Screen
