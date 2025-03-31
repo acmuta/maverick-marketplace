@@ -9,7 +9,9 @@
     "ios": "EXPO_ROUTER_APP_ROOT=./app EXPO_ROUTER_IMPORT_MODE=sync expo start --ios",
     "web": "cross-env WEB=true EXPO_OS=web EXPO_ROUTER_APP_ROOT=./app EXPO_ROUTER_IMPORT_MODE=sync expo start --web",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "network-setup": "node setup-network.js",
+    "start-network": "EXPO_ROUTER_APP_ROOT=./app EXPO_ROUTER_IMPORT_MODE=sync expo start --lan"
   },
   "jest": {
     "preset": "jest-expo"
