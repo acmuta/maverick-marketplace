@@ -22,6 +22,11 @@ export default function LoginScreen() {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    email?: string;
+    password?: string;
+  }>({});
   const router = useRouter();
 
   useEffect(() => {
@@ -43,22 +48,15 @@ export default function LoginScreen() {
   };
 
   const validateForm = () => {
-    if (!email.trim()) {
-      Alert.alert('Error', 'Email is required');
-      return false;
-    }
-    
-    if (!password.trim()) {
-      Alert.alert('Error', 'Password is required');
-      return false;
-    }
-    
-    if (mode === 'register' && !name.trim()) {
-      Alert.alert('Error', 'Name is required');
-      return false;
-    }
-    
-    return true;
+    let errors: { name?: string; email?: string; password?: string } = {};
+
+    if (!email.trim()) errors.email = "Email is required.";
+    if (!password.trim()) errors.password = "Password is required.";
+    if (mode === 'register' && !name.trim()) errors.name = "Name is required.";
+
+    setFieldErrors(errors);
+
+    return Object.keys(errors).length === 0;
   };
 
   const handleAuth = async () => {
@@ -132,33 +130,54 @@ export default function LoginScreen() {
             <>
               <Text style={styles.label}>Name</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, fieldErrors.name && styles.error]}
                 value={name}
-                onChangeText={setName}
+                onChangeText={(text) => {
+                  setName(text);
+                  setFieldErrors((prev) => ({ 
+                    ...prev, 
+                    name: text.trim() === "" ? "Name is required." : undefined, }));
+                }}
                 placeholder="Your full name"
+                placeholderTextColor={"rgba(0, 0, 0, 0.5)"}
                 autoCapitalize="words"
               />
             </>
           )}
+          {fieldErrors.name && <Text style={styles.errorText}>{fieldErrors.name}</Text>}
           
-          <Text style={styles.label}>Email</Text>
+          <Text style={[styles.label, fieldErrors.email && styles.error]}>Email</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, fieldErrors.email && styles.error]}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              setFieldErrors((prev) => ({ 
+                ...prev, 
+                email: text.trim() === "" ? "Email is required." : undefined, }));
+            }}
             placeholder="Your email address"
+            placeholderTextColor={"rgba(0, 0, 0, 0.5)"}
             keyboardType="email-address"
             autoCapitalize="none"
           />
+          {fieldErrors.email && <Text style={styles.errorText}>{fieldErrors.email}</Text>}
           
-          <Text style={styles.label}>Password</Text>
+          <Text style={[styles.label, fieldErrors.password && styles.error]}>Password</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, fieldErrors.password && styles.error]}
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              setFieldErrors((prev) => ({ 
+                ...prev, 
+                password: text.trim() === "" ? "Password is required." : undefined, }));
+            }}
             placeholder="Your password"
+            placeholderTextColor={"rgba(0, 0, 0, 0.5)"}
             secureTextEntry
           />
+          {fieldErrors.password && <Text style={styles.errorText}>{fieldErrors.password}</Text>}
           
           <TouchableOpacity
             style={[styles.button, isLoading && styles.buttonDisabled]}
@@ -259,4 +278,13 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontSize: 16,
   },
+  error: {
+    borderColor: 'red'
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: -10,
+    marginBottom: 10,
+  }
 });
