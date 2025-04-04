@@ -25,6 +25,7 @@ export default function ListingForm({ navigation: externalNavigation }){
     const [location, setLocation] = useState('');
     const [images, setImages] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({});
 
     const pickImage = async () => {
         try {
@@ -65,27 +66,16 @@ export default function ListingForm({ navigation: externalNavigation }){
     };
 
     const validateForm = () => {
-        if (!title.trim()) {
-            Alert.alert('Error', 'Title is required');
-            return false;
-        }
-          
-        if (!description.trim()) {
-            Alert.alert('Error', 'Description is required');
-            return false;
-        }
-          
-        if (!price || isNaN(parseFloat(price)) || parseFloat(price) < 0) {
-            Alert.alert('Error', 'Please enter a valid price');
-            return false;
-        }
-          
-        if (!category.trim()) {
-            Alert.alert('Error', 'Category is required');
-            return false;
-        }
-          
-        return true; 
+      let errors = {};
+  
+      if (!title.trim()) errors.title = "Title is required.";
+      if (!description.trim()) errors.description = "Description cannot be empty.";
+      if (!price || isNaN(parseFloat(price)) || parseFloat(price) < 0) errors.price = "Enter a valid price.";
+      if (!category.trim()) errors.category = "Category is required.";
+  
+      setFieldErrors(errors);
+  
+      return Object.keys(errors).length === 0;
     };
     
     const submitListing = async () => {
@@ -185,98 +175,137 @@ export default function ListingForm({ navigation: externalNavigation }){
         }
     };
 
-      return (
-        <ScrollView style={styles.container}>
-          <Text style={styles.title}>Create New Listing</Text>
-          
-          <Text style={styles.label}>Title *</Text>
+    return (
+      <ScrollView style={styles.container}>
+        <Text style={styles.title}>Create New Listing</Text>
+        
+        <Text style={styles.label}>Title *</Text>
+        <TextInput
+          style={[styles.input, fieldErrors.title && styles.error]}
+          value={title}
+          onChangeText={(text) => {
+            setTitle(text);
+            setFieldErrors((prev) => ({ 
+              ...prev, 
+              title: text.trim() === "" ? "Title is required." : null }));
+          }}
+          placeholder="What are you selling?"
+          placeholderTextColor={"rgba(0, 0, 0, 0.5)"}
+        />
+        {fieldErrors.title && <Text style={styles.errorText}>{fieldErrors.title}</Text>}
+        
+        <Text style={styles.label}>Description *</Text>
+        <TextInput
+          style={[styles.input, styles.textArea, fieldErrors.description && styles.error]}
+          value={description}
+          onChangeText={(text) => {
+            setDescription(text);
+            setFieldErrors((prev) => ({ 
+              ...prev, 
+              description: text.trim() === "" ? "Description cannot be empty." : null, }));
+          }}
+          placeholder="Describe your item"
+          placeholderTextColor={"rgba(0, 0, 0, 0.5)"}
+          multiline
+          numberOfLines={4}
+        />
+        {fieldErrors.description && <Text style={styles.errorText}>{fieldErrors.description}</Text>}
+        
+        <Text style={styles.label}>Price *</Text>
+        <View style={styles.priceContainer}>
+          <Text style={styles.dollarSign}>$</Text>
           <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="What are you selling?"
+            style={[styles.priceInput, fieldErrors.price && styles.error]}
+            value={price}
+            onChangeText={(text) => {
+              setPrice(text);const parsedPrice = parseFloat(text);
+              let errorMessage = null;
+  
+              if (text.trim() === "") {
+                  errorMessage = "Enter a valid price.";
+              } else if (isNaN(parsedPrice)) {
+                  errorMessage = "Price must be a number.";
+              } else if (parsedPrice < 0) {
+                  errorMessage = "Price cannot be negative.";
+              }
+              setFieldErrors((prev) => ({ 
+                ...prev, 
+                price: errorMessage }));
+            }}
+            placeholder="0.00"
+            placeholderTextColor={"rgba(0, 0, 0, 0.5)"}
+            keyboardType="decimal-pad"
           />
-          
-          <Text style={styles.label}>Description *</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Describe your item"
-            multiline
-            numberOfLines={4}
-          />
-          
-          <Text style={styles.label}>Price *</Text>
-          <View style={styles.priceContainer}>
-            <Text style={styles.dollarSign}>$</Text>
-            <TextInput
-              style={styles.priceInput}
-              value={price}
-              onChangeText={setPrice}
-              placeholder="0.00"
-              keyboardType="decimal-pad"
-            />
+        </View>
+        {fieldErrors.price && <Text style={styles.errorText}>{fieldErrors.price}</Text>}
+        
+        <Text style={styles.label}>Category *</Text>
+        <TextInput
+          style={[styles.input, fieldErrors.category && styles.error]}
+          value={category}
+          onChangeText={(text) => {
+            setCategory(text);
+            setFieldErrors((prev) => ({ 
+              ...prev, 
+              category: text.trim() === "" ? "Category is required." : null, }));
+          }}
+          placeholder="e.g. Electronics, Textbooks, Furniture"
+          placeholderTextColor={"rgba(0, 0, 0, 0.5)"}
+        />
+        {fieldErrors.category && <Text style={styles.errorText}>{fieldErrors.category}</Text>}
+        
+        <Text style={styles.label}>Condition</Text>
+        <TextInput
+          style={styles.input}
+          value={condition}
+          onChangeText={setCondition}
+          placeholder="e.g. New, Like New, Good, Fair"
+          placeholderTextColor={"rgba(0, 0, 0, 0.5)"}
+        />
+        
+        <Text style={styles.label}>Location on Campus</Text>
+        <TextInput
+          style={styles.input}
+          value={location}
+          onChangeText={setLocation}
+          placeholder="Where on campus?"
+          placeholderTextColor={"rgba(0, 0, 0, 0.5)"}
+        />
+        
+        <Text style={styles.label}>Images</Text>
+        <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+          <Text style={styles.imagePickerText}>+ Add Photos</Text>
+        </TouchableOpacity>
+        
+        {images.length > 0 && (
+          <View style={styles.imagesContainer}>
+            {images.map((img, index) => (
+              <View key={index} style={styles.imageWrapper}>
+                <Image source={{ uri: img.uri }} style={styles.imagePreview} />
+                <TouchableOpacity 
+                  style={styles.removeButton} 
+                  onPress={() => removeImage(index)}
+                >
+                  <Text style={styles.removeButtonText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
           </View>
-          
-          <Text style={styles.label}>Category *</Text>
-          <TextInput
-            style={styles.input}
-            value={category}
-            onChangeText={setCategory}
-            placeholder="e.g. Electronics, Textbooks, Furniture"
-          />
-          
-          <Text style={styles.label}>Condition</Text>
-          <TextInput
-            style={styles.input}
-            value={condition}
-            onChangeText={setCondition}
-            placeholder="e.g. New, Like New, Good, Fair"
-          />
-          
-          <Text style={styles.label}>Location on Campus</Text>
-          <TextInput
-            style={styles.input}
-            value={location}
-            onChangeText={setLocation}
-            placeholder="Where on campus?"
-          />
-          
-          <Text style={styles.label}>Images</Text>
-          <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-            <Text style={styles.imagePickerText}>+ Add Photos</Text>
-          </TouchableOpacity>
-          
-          {images.length > 0 && (
-            <View style={styles.imagesContainer}>
-              {images.map((img, index) => (
-                <View key={index} style={styles.imageWrapper}>
-                  <Image source={{ uri: img.uri }} style={styles.imagePreview} />
-                  <TouchableOpacity 
-                    style={styles.removeButton} 
-                    onPress={() => removeImage(index)}
-                  >
-                    <Text style={styles.removeButtonText}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
+        )}
+        
+        <TouchableOpacity 
+          style={[styles.button, isSubmitting && styles.buttonDisabled]} 
+          onPress={submitListing}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Post Listing</Text>
           )}
-          
-          <TouchableOpacity 
-            style={[styles.button, isSubmitting && styles.buttonDisabled]} 
-            onPress={submitListing}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Post Listing</Text>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
-      );
+        </TouchableOpacity>
+      </ScrollView>
+    );
 }
 
 const styles = StyleSheet.create({
@@ -386,4 +415,13 @@ const styles = StyleSheet.create({
       fontWeight: 'bold',
       fontSize: 16,
     },
+    error: {
+      borderColor: 'red',
+    },
+    errorText: {
+      color: 'red',
+      fontSize: 12,
+      marginTop: -10,
+      marginBottom: 10,
+    }
   });
