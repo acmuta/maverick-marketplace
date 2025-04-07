@@ -15,16 +15,16 @@ export default function ListingGrid({ listing, isLoading, refreshing, onRefresh 
         {item.imageUrl ? (
             <Image 
                 source={{ 
-                    uri: item.imageUrl,
-                    headers: {
-                    'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
-                    }
+                    uri: item.imageUrl
                 }}
                 style={{...styles.image, minWidth: 150, minHeight: 150}}
                 contentFit="cover"
                 cachePolicy="none"
-                onError={(error) => console.error("Image error:", error)}
-                onLoad={() => console.log("Image loaded successfully")}
+                transition={300}
+                onError={(error) => {
+                  console.error("Image error:", error);
+                  // If in a real app, you could set a fallback image here
+                }}
             />
         ) : (
             <View style={styles.placeholderImage}>

@@ -1,9 +1,9 @@
-// app/(tabs)/index.jsx
+// app/(tabs)/index.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, RefreshControl, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Query, Models } from 'react-native-appwrite';
-import { databases, storage, account, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, IMAGES_BUCKET_ID } from '../../appwrite/config';
+import { databases, storage, account, getImageUrl, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, IMAGES_BUCKET_ID } from '../../appwrite/config';
 import ListingGrid from '../components/ListingGrid';
 
 interface Listing {
@@ -15,10 +15,11 @@ interface Listing {
 }
 
 export default function HomeScreen() {
-  const [listing, setListing] = useState<Listing[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<Models.User<Models.Preferences> | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   // Check if user is logged in
@@ -48,55 +49,68 @@ export default function HomeScreen() {
 
   const fetchListings = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        LISTINGS_COLLECTION_ID,
-        [
-          Query.equal('status', 'active'),
-          Query.orderDesc('createdAt')
-        ]
-      );
+      console.log("Fetching with endpoint:", process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT);
+      console.log("Project ID:", process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID);
+      
+      // First test if we can list databases at all
+      try {
+        // Just try to fetch the listings directly
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          LISTINGS_COLLECTION_ID,
+          [
+            Query.equal('status', 'active'),
+            Query.orderDesc('createdAt')
+          ]
+        );
+        
+        console.log("Successfully connected to Appwrite!");
+        console.log("Found listings:", response.documents.length);
+        
+        const listingsWithImages = await Promise.all(
+          response.documents.map(async (listing) => {
+            try {
+              const imagesResponse = await databases.listDocuments(
+                DATABASE_ID,
+                IMAGES_COLLECTION_ID,
+                [
+                  Query.equal('listingId', listing.$id),
+                  Query.orderAsc('order'),
+                  Query.limit(1)
+                ]
+              );
 
-      const listingsWithImages = await Promise.all(
-        response.documents.map(async (listing) => {
-          try {
-            const imagesResponse = await databases.listDocuments(
-              DATABASE_ID,
-              IMAGES_COLLECTION_ID,
-              [
-                Query.equal('listingId', listing.$id),
-                Query.orderAsc('order'),
-                Query.limit(1)
-              ]
-            );
-
-            if (imagesResponse.documents.length > 0) {
-              const fileId = imagesResponse.documents[0].fileId;
-              try {
-                const imageUrl = storage.getFilePreview(
-                  IMAGES_BUCKET_ID, 
-                  fileId,
-                  400,
-                  300
-                );
-                console.log("Generated image URL:", imageUrl.toString());
-                listing.imageUrl = imageUrl.toString();
-              } catch (error) {
-                console.error(`Error getting file view for ${fileId}:`, error);
+              if (imagesResponse.documents.length > 0) {
+                const fileId = imagesResponse.documents[0].fileId;
+                try {
+                  // Use the helper function to get URL
+                  const imageUrl = getImageUrl(IMAGES_BUCKET_ID, fileId, 400, 300);
+                  console.log("Generated image URL:", imageUrl);
+                  listing.imageUrl = imageUrl;
+                } catch (imgError) {
+                  console.error(`Error getting file view:`, imgError);
+                }
               }
+              return listing;
+            } catch (listingError) {
+              console.error(`Error fetching images:`, listingError);
+              return listing;
             }
-            return listing;
-          } catch (error) {
-            console.error(`Error fetching images for listing ${listing.$id}:`, error);
-            return listing;
-          }
-        })
-      );
+          })
+        );
 
-      setListing(listingsWithImages);
+        setListings(listingsWithImages);
+        
+      } catch (connectionError) {
+        console.error("Connection error:", connectionError);
+        throw new Error("Could not connect to Appwrite. Please check your project ID and endpoint.");
+      }
     } catch (error) {
-      console.error('Error fetching listing:', error);
+      console.error('Error fetching listings:', error);
+      setError(error instanceof Error ? error.message : "Unknown error fetching listings");
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -106,6 +120,16 @@ export default function HomeScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchListings();
+  };
+
+  const showError = () => {
+    if (error) {
+      Alert.alert(
+        "Connection Error",
+        error + "\n\nIf using tunneling, make sure to run the full tunnel script.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   return (
@@ -126,6 +150,11 @@ export default function HomeScreen() {
       <View style={styles.mainContent}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Latest Listings</Text>
+          {error && (
+            <TouchableOpacity onPress={showError}>
+              <Text style={styles.errorText}>Connection Error (Tap for details)</Text>
+            </TouchableOpacity>
+          )}
         </View>
   
         {isLoading && !refreshing ? (
@@ -134,7 +163,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           <ListingGrid 
-            listing={listing} 
+            listing={listings} 
             isLoading={isLoading}
             refreshing={refreshing}
             onRefresh={onRefresh}
@@ -183,6 +212,11 @@ const styles = StyleSheet.create({
     color: 'white',
     marginTop: 4,
     textDecorationLine: 'underline',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ff6b6b',
+    marginTop: 4,
   },
   contentContainer: {
     flexGrow: 1,
