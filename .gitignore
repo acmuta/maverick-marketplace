@@ -5,3 +5,4 @@ expo-env.d.ts
 /.env
 !/appwrite/.env.example
 /appwrite-setup/node_modules
+.DS_Store
