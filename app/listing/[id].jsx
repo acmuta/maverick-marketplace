@@ -1,11 +1,29 @@
-// app/listing/[id].jsx
-
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  Alert, 
+  ActivityIndicator, 
+  Dimensions,
+  Modal,
+  Pressable
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Query } from 'react-native-appwrite';
 import { Image } from 'expo-image';
-import { account, databases, storage, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, USERS_COLLECTION_ID, IMAGES_BUCKET_ID } from '../../appwrite/config';
+import { 
+  account, 
+  databases, 
+  storage, 
+  DATABASE_ID, 
+  LISTINGS_COLLECTION_ID, 
+  IMAGES_COLLECTION_ID, 
+  USERS_COLLECTION_ID, 
+  IMAGES_BUCKET_ID 
+} from '../../appwrite/config';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function ListingDetailScreen() {
@@ -17,9 +35,10 @@ export default function ListingDetailScreen() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const { width } = Dimensions.get('window');
 
   useEffect(() => {
-    // We'll attempt to fetch all data, but handle errors gracefully
     fetchData();
   }, [id]);
 
@@ -34,7 +53,6 @@ export default function ListingDetailScreen() {
     }
   };
 
-  // Separate functions to fetch each piece of data independently
   const fetchListingData = async () => {
     try {
       const listingData = await databases.getDocument(
@@ -87,10 +105,8 @@ export default function ListingDetailScreen() {
       );
 
       if (imagesResponse.documents.length > 0) {
-        // Generate image URLs with direct view URLs for better guest access
         const imageUrls = imagesResponse.documents.map((img, index) => {
           try {
-            // Use getFileView instead of getFilePreview for better guest access
             const viewUrl = storage.getFileView(IMAGES_BUCKET_ID, img.fileId).toString();
             console.log(`Generated detail image URL: ${viewUrl}`);
             return {
@@ -121,26 +137,19 @@ export default function ListingDetailScreen() {
     }
   };
 
-  // Orchestrate all data fetching, but continue even if some parts fail
   const fetchData = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // First check if user is logged in (don't need to wait for this)
       checkCurrentUser();
-      
-      // Fetch the listing data first
       const listingData = await fetchListingData();
       
-      // If we can't get the listing data, we can't proceed
       if (!listingData) {
         setIsLoading(false);
         return;
       }
       
-      // Now fetch seller and images in parallel
-      // We can still show the listing even if these fail
       await Promise.all([
         fetchSellerData(listingData.userId),
         fetchImagesData(id)
@@ -263,37 +272,68 @@ export default function ListingDetailScreen() {
   return (
     <ScrollView style={styles.container}>
       {/* Image Gallery */}
-      <ScrollView 
-        horizontal 
-        pagingEnabled 
-        showsHorizontalScrollIndicator={true}
-        style={styles.imageGallery}
+      <View style={styles.galleryContainer}>
+        <ScrollView 
+          horizontal 
+          pagingEnabled 
+          showsHorizontalScrollIndicator={true}
+          style={styles.imageGallery}
+        >
+          {images.length > 0 && images.some(img => img.url) ? (
+            images
+              .filter(image => image.url)
+              .map((image, index) => (
+                <TouchableOpacity 
+                  key={`img-container-${index}`} 
+                  style={{ width }}
+                  onPress={() => setSelectedImage(image.url)}
+                >
+                  <Image 
+                    source={{ 
+                      uri: image.url,
+                      headers: {
+                        'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID
+                      }
+                    }}
+                    style={styles.image}
+                    contentFit="cover"
+                  />
+                </TouchableOpacity>
+              ))
+          ) : (
+            <View style={[styles.placeholderImage, { width }]}>
+              <Text style={styles.placeholderText}>No Images Available</Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+
+      {/* Full Screen Image Modal */}
+      <Modal
+        visible={!!selectedImage}
+        transparent={true}
+        onRequestClose={() => setSelectedImage(null)}
       >
-        {images.length > 0 && images.some(img => img.url) ? (
-          images
-            .filter(image => image.url) // Only show images with valid URLs
-            .map((image, index) => (
-              <Image 
-                key={`image-${image.fileId}-${index}`}
-                source={{ 
-                  uri: image.url,
-                  headers: {
-                    'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID
-                  }
-                }}
-                style={styles.image} 
-                contentFit="cover"
-                cachePolicy="none"
-                onError={(error) => console.error(`Image loading error: ${error}`)}
-                onLoad={() => console.log(`Detail image loaded successfully: ${image.fileId}`)}
-              />
-            ))
-        ) : (
-          <View style={styles.placeholderImage}>
-            <Text style={styles.placeholderText}>No Images Available</Text>
+        <View style={styles.modalContainer}>
+          <Pressable 
+            style={styles.modalBackground} 
+            onPress={() => setSelectedImage(null)}
+          />
+          <View style={styles.fullImageContainer}>
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.fullImage}
+              contentFit="contain"
+            />
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setSelectedImage(null)}
+            >
+              <Ionicons name="close" size={28} color="white" />
+            </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
+        </View>
+      </Modal>
 
       {/* Listing Details */}
       <View style={styles.detailsContainer}>
@@ -368,29 +408,6 @@ export default function ListingDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-    actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-  },
-  messageButton: {
-    flex: 1,
-    marginRight: 8,
-    backgroundColor: '#4CAF50',
-  },
-  button: {
-    flex: 1,
-    backgroundColor: '#2196F3',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -412,15 +429,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#f44336',
   },
-  imageGallery: {
+  galleryContainer: {
     height: 300,
+  },
+  imageGallery: {
+    height: '100%',
   },
   image: {
-    width: 400,
-    height: 300,
+    width: '100%',
+    height: '100%',
   },
   placeholderImage: {
-    width: 400,
     height: 300,
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
@@ -482,22 +501,69 @@ const styles = StyleSheet.create({
   sellerName: {
     fontSize: 16,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  messageButton: {
+    flex: 1,
+    marginRight: 8,
+    backgroundColor: '#4CAF50',
+  },
   button: {
+    flex: 1,
     backgroundColor: '#2196F3',
+    flexDirection: 'row',
+    justifyContent: 'center',
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 8,
   },
-  deleteButton: {
-    backgroundColor: '#f44336',
+  buttonIcon: {
+    marginRight: 8,
   },
   buttonText: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
   },
+  deleteButton: {
+    backgroundColor: '#f44336',
+  },
   ownerButtons: {
     marginTop: 16,
+  },
+
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.9)',
+  },
+  modalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  fullImageContainer: {
+    width: '100%',
+    height: '80%',
+    position: 'relative',
+  },
+  fullImage: {
+    width: '100%',
+    height: '100%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 10,
   },
 });

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, TextInput, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, TextInput, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Modal, Pressable, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { ID } from 'react-native-appwrite';
@@ -12,8 +12,6 @@ import {
     IMAGES_COLLECTION_ID,
     IMAGES_BUCKET_ID 
 } from '../../appwrite/config';
-import * as FileSystem from 'expo-file-system';
-import { Platform } from 'react-native';
 
 export default function ListingForm({ navigation: externalNavigation }){
     const router = useRouter();
@@ -25,67 +23,159 @@ export default function ListingForm({ navigation: externalNavigation }){
     const [location, setLocation] = useState('');
     const [images, setImages] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState(null);
+    const [showImageSourceDialog, setShowImageSourceDialog] = useState(false);
+    const [showConditionDropdown, setShowConditionDropdown] = useState(false);
 
-    const pickImage = async () => {
-        try {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted'){
-                Alert.alert('Permission Denied', 'We need camera roll permissions to upload images');
-                return;
+    const categories = [
+        'Electronics',
+        'Textbooks',
+        'Furniture',
+        'Clothing',
+        'Sports Equipment',
+        'Home Appliances',
+        'School Supplies',
+        'Other'
+    ];
+
+    const conditions = [
+      'New',
+      'Like New',
+      'Good',
+      'Fair',
+      'Poor'
+    ];
+
+    useEffect(() => {
+        const checkSession = async () => {
+            try {
+                const session = await account.getSession('current');
+                if (session) {
+                    const user = await account.get();
+                    setCurrentUser(user);
+                }
+            } catch (error) {
+                console.log('No active session found');
+            } finally {
+                setIsLoading(false);
             }
+        };
+        
+        checkSession();
+    }, []);
 
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
-                allowsEditing: true,
-                quality: 0.8,
-                base64: false,
-                exif: false,    
-            });
+    if (isLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#2196F3" />
+            </View>
+        );
+    }
 
-            if (!result.canceled){
-                console.log("Selected image info:", {
-                    uri: result.assets[0].uri,
-                    width: result.assets[0].width,
-                    height: result.assets[0].height,
-                    type: result.assets[0].type,
-                });
+    if (!currentUser) {
+        return (
+            <View style={styles.containerCenter}>
+                <Text style={styles.message}>Please log in to create a listing</Text>
+                <TouchableOpacity style={styles.button} onPress={() => router.push('/login')}>
+                    <Text style={styles.buttonText}>Log In</Text>
+                </TouchableOpacity>
+            </View>
+        );       
+    }
 
-                setImages([...images, result.assets[0]]);
-            }
-        } catch (error) {
-            console.error('Error picking image:', error);
-            Alert.alert('Error', 'Failed to pick image');
+    const requestPermissions = async () => {
+        const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+        const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        
+        if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
+            Alert.alert(
+                'Permissions Required',
+                'We need camera and photo library permissions to upload images',
+                [{ text: 'OK' }]
+            );
+            return false;
         }
+        return true;
+    };
+
+    const pickImageFromGallery = async () => {
+      setShowImageSourceDialog(false);
+      const hasPermission = await requestPermissions();
+      if (!hasPermission) return;
+  
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.8,
+        });
+  
+        if (!result.canceled) {
+          setImages([...images, result.assets[0]]);
+        }
+      } catch (error) {
+        console.error('Error picking image:', error);
+        alert('Failed to pick image from gallery');
+      }
+    };
+
+    const takePhotoWithCamera = async () => {
+      setShowImageSourceDialog(false);
+      const hasPermission = await requestPermissions();
+      if (!hasPermission) return;
+  
+      try {
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.8,
+        });
+  
+        if (!result.canceled) {
+          setImages([...images, result.assets[0]]);
+        }
+      } catch (error) {
+        console.error('Error taking photo:', error);
+        alert('Failed to take photo');
+      }
+    };
+
+    const showImagePickerOptions = () => {
+        setShowImageSourceDialog(true);
     };
 
     const removeImage = (index) => {
-        const updatedImages = [...images];
-        updatedImages.splice(index, 1);
-        setImages(updatedImages);
+      const updatedImages = [...images];
+      updatedImages.splice(index, 1);
+      setImages(updatedImages);
     };
 
     const validateForm = () => {
-        if (!title.trim()) {
-            Alert.alert('Error', 'Title is required');
-            return false;
-        }
-          
-        if (!description.trim()) {
-            Alert.alert('Error', 'Description is required');
-            return false;
-        }
-          
-        if (!price || isNaN(parseFloat(price)) || parseFloat(price) < 0) {
-            Alert.alert('Error', 'Please enter a valid price');
-            return false;
-        }
-          
-        if (!category.trim()) {
-            Alert.alert('Error', 'Category is required');
-            return false;
-        }
-          
-        return true; 
+      if (!title.trim()) {
+        alert('Title is required');
+        return false;
+      }
+        
+      if (!description.trim()) {
+        alert('Description is required');
+        return false;
+      }
+        
+      if (!price || isNaN(parseFloat(price)) || parseFloat(price) < 0) {
+        alert('Please enter a valid price');
+        return false;
+      }
+        
+      if (!category.trim()) {
+        alert('Category is required');
+        return false;
+      }
+        
+      return true; 
     };
     
     const submitListing = async () => {
@@ -94,12 +184,7 @@ export default function ListingForm({ navigation: externalNavigation }){
         setIsSubmitting(true);
 
         try{
-            console.log("Starting submission process");
-            const currentUser = await account.get();
-            console.log("Got current user:", currentUser.$id);
-
             const listingId = ID.unique();
-            console.log("Generated listing ID:", listingId);
 
             await databases.createDocument(
                 DATABASE_ID,
@@ -121,16 +206,10 @@ export default function ListingForm({ navigation: externalNavigation }){
             if (images.length > 0) {
                 await Promise.all(images.map(async (image, index) => {
                   try {
-                    // Get the file name from the URI
                     const uriParts = image.uri.split('/');
                     const fileName = uriParts[uriParts.length - 1];
-                    
-                    console.log(`Uploading image: ${fileName}`);
-                    
-                    // Create a unique ID for the file
                     const fileId = ID.unique();
                     
-                    // Prepare form data
                     const formData = new FormData();
                     formData.append('fileId', fileId);
                     formData.append('file', {
@@ -139,13 +218,11 @@ export default function ListingForm({ navigation: externalNavigation }){
                       type: 'image/jpeg',
                     });
                     
-                    // Use fetch API to upload the file directly
                     const endpoint = `${process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${IMAGES_BUCKET_ID}/files`;
                     const response = await fetch(endpoint, {
                       method: 'POST',
                       headers: {
                         'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
-                        // Add your API key or session token here for authentication
                       },
                       body: formData,
                     });
@@ -155,7 +232,6 @@ export default function ListingForm({ navigation: externalNavigation }){
                     }
                     
                     const fileData = await response.json();
-                    console.log(`File uploaded successfully with ID: ${fileData.$id}`);
                     
                     await databases.createDocument(
                       DATABASE_ID,
@@ -163,7 +239,7 @@ export default function ListingForm({ navigation: externalNavigation }){
                       ID.unique(),
                       {
                         listingId,
-                        fileId: fileData.$id || fileId, // Use the response ID if available, fallback to our generated ID
+                        fileId: fileData.$id || fileId,
                         order: index,
                       }
                     );
@@ -174,8 +250,6 @@ export default function ListingForm({ navigation: externalNavigation }){
               }
 
             Alert.alert('Success', 'Your listing has been created!');
-
-            // Use the router from Expo Router directly
             router.replace('/(tabs)');
         } catch (error) {
             console.error('Error creating listing:', error);
@@ -185,29 +259,67 @@ export default function ListingForm({ navigation: externalNavigation }){
         }
     };
 
-      return (
-        <ScrollView style={styles.container}>
-          <Text style={styles.title}>Create New Listing</Text>
+    const selectCategory = (selectedCategory) => {
+      setCategory(selectedCategory);
+      setShowCategoryDropdown(false);
+    };
+    const selectCondition = (selectedCondition) => {
+      setCondition(selectedCondition);
+      setShowConditionDropdown(false);
+    };
+
+    return (
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>Create New Listing</Text>
+        
+        {/* Images Section */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Images</Text>
+          <Text style={styles.sectionSubtitle}>First image will be the cover photo</Text>
           
-          <Text style={styles.label}>Title *</Text>
+          <View style={styles.imagesRow}>
+            {images.map((img, index) => (
+              <View key={index} style={styles.imageWrapper}>
+                <Image source={{ uri: img.uri }} style={styles.imagePreview} />
+                <TouchableOpacity 
+                  style={styles.removeButton} 
+                  onPress={() => removeImage(index)}
+                >
+                  <Text style={styles.removeButtonText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            
+            <TouchableOpacity 
+              style={styles.addImageButton} 
+              onPress={() => setShowImageSourceDialog(true)}
+            >
+              <View style={styles.addImageContent}>
+                <Text style={styles.plusIcon}>+</Text>
+                <Text style={styles.addImageText}>Add Photo</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {/* Title Field */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text>
           <TextInput
             style={styles.input}
             value={title}
             onChangeText={setTitle}
             placeholder="What are you selling?"
           />
-          
-          <Text style={styles.label}>Description *</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Describe your item"
-            multiline
-            numberOfLines={4}
-          />
-          
-          <Text style={styles.label}>Price *</Text>
+        </View>
+        
+        {/* Price Field */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Price <Text style={styles.required}>*</Text></Text>
           <View style={styles.priceContainer}>
             <Text style={styles.dollarSign}>$</Text>
             <TextInput
@@ -218,172 +330,489 @@ export default function ListingForm({ navigation: externalNavigation }){
               keyboardType="decimal-pad"
             />
           </View>
-          
-          <Text style={styles.label}>Category *</Text>
-          <TextInput
-            style={styles.input}
-            value={category}
-            onChangeText={setCategory}
-            placeholder="e.g. Electronics, Textbooks, Furniture"
-          />
-          
-          <Text style={styles.label}>Condition</Text>
-          <TextInput
-            style={styles.input}
-            value={condition}
-            onChangeText={setCondition}
-            placeholder="e.g. New, Like New, Good, Fair"
-          />
-          
-          <Text style={styles.label}>Location on Campus</Text>
-          <TextInput
-            style={styles.input}
-            value={location}
-            onChangeText={setLocation}
-            placeholder="Where on campus?"
-          />
-          
-          <Text style={styles.label}>Images</Text>
-          <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-            <Text style={styles.imagePickerText}>+ Add Photos</Text>
-          </TouchableOpacity>
-          
-          {images.length > 0 && (
-            <View style={styles.imagesContainer}>
-              {images.map((img, index) => (
-                <View key={index} style={styles.imageWrapper}>
-                  <Image source={{ uri: img.uri }} style={styles.imagePreview} />
-                  <TouchableOpacity 
-                    style={styles.removeButton} 
-                    onPress={() => removeImage(index)}
-                  >
-                    <Text style={styles.removeButtonText}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-          
+        </View>
+        
+        {/* Category Field */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Category <Text style={styles.required}>*</Text></Text>
           <TouchableOpacity 
-            style={[styles.button, isSubmitting && styles.buttonDisabled]} 
-            onPress={submitListing}
-            disabled={isSubmitting}
+            style={styles.dropdown} 
+            onPress={() => setShowCategoryDropdown(true)}
           >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Post Listing</Text>
-            )}
+            <Text style={category ? styles.dropdownSelectedText : styles.dropdownPlaceholder}>
+              {category || 'Select a category'}
+            </Text>
+            <Text style={styles.dropdownArrow}>▼</Text>
           </TouchableOpacity>
-        </ScrollView>
-      );
-}
-
-const styles = StyleSheet.create({
+        </View>
+        
+        {/* Condition Field */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Condition</Text>
+          <TouchableOpacity 
+            style={styles.dropdown} 
+            onPress={() => setShowConditionDropdown(true)}
+          >
+            <Text style={condition ? styles.dropdownSelectedText : styles.dropdownPlaceholder}>
+              {condition || 'Select condition'}
+            </Text>
+            <Text style={styles.dropdownArrow}>▼</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Location Field */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Location on Campus</Text>
+          <View style={styles.locationContainer}>
+            <Text style={styles.locationIcon}>📍</Text>
+            <TextInput
+              style={styles.locationInput}
+              value={location}
+              onChangeText={setLocation}
+              placeholder="Where on campus?"
+            />
+          </View>
+        </View>
+        
+        {/* Description Field */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Description <Text style={styles.required}>*</Text></Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Describe your item in detail. Include any relevant information that buyers would want to know."
+            multiline
+            numberOfLines={6}
+          />
+        </View>
+        
+        {/* Info Box */}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoIcon}>ℹ️</Text>
+          <Text style={styles.infoText}>
+            By posting this listing, you agree to our terms of service and community guidelines.
+            Your contact information will be shared with interested buyers.
+          </Text>
+        </View>
+        
+        {/* Submit Button */}
+        <TouchableOpacity 
+          style={[styles.button, isSubmitting && styles.buttonDisabled]} 
+          onPress={submitListing}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.buttonText}>Post Listing</Text>
+          )}
+        </TouchableOpacity>
+        
+        {/* Required Fields Note */}
+        <Text style={styles.requiredNote}>Fields marked with * are required</Text>
+  
+        <View style={styles.bottomSpacer} />
+        
+        {/* Category Modal */}
+        <Modal
+          visible={showCategoryDropdown}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowCategoryDropdown(false)}
+        >
+          <Pressable 
+            style={styles.modalOverlay} 
+            onPress={() => setShowCategoryDropdown(false)}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Category</Text>
+              <ScrollView style={styles.modalScrollView}>
+                {categories.map((item, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.modalItem}
+                    onPress={() => selectCategory(item)}
+                  >
+                    <Text style={styles.modalItemText}>{item}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity 
+                style={styles.modalCloseButton}
+                onPress={() => setShowCategoryDropdown(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
+        
+        {/* Condition Modal */}
+        <Modal
+          visible={showConditionDropdown}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowConditionDropdown(false)}
+        >
+          <Pressable 
+            style={styles.modalOverlay} 
+            onPress={() => setShowConditionDropdown(false)}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Condition</Text>
+              <ScrollView style={styles.modalScrollView}>
+                {conditions.map((item, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.modalItem}
+                    onPress={() => selectCondition(item)}
+                  >
+                    <Text style={styles.modalItemText}>{item}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity 
+                style={styles.modalCloseButton}
+                onPress={() => setShowConditionDropdown(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
+        
+        {/* Image Source Modal */}
+        <Modal
+          visible={showImageSourceDialog}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowImageSourceDialog(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.imageModalContent}>
+              <Text style={styles.modalTitle}>Add Photo</Text>
+              <TouchableOpacity
+                style={[styles.imageModalButton, styles.cameraButton]}
+                onPress={takePhotoWithCamera}
+              >
+                <Text style={styles.imageModalButtonText}>📸 Take Photo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.imageModalButton, styles.galleryButton]}
+                onPress={pickImageFromGallery}
+              >
+                <Text style={styles.imageModalButtonText}>🖼️ Choose from Gallery</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.imageModalButton, styles.cancelButton]}
+                onPress={() => setShowImageSourceDialog(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  }
+  
+  const styles = StyleSheet.create({
     container: {
       flex: 1,
+      backgroundColor: '#f5f5f7',
+    },
+    scrollContent: {
       padding: 16,
-      backgroundColor: '#fff',
+      paddingBottom: 100,
     },
     title: {
       fontSize: 24,
       fontWeight: 'bold',
       marginBottom: 20,
       textAlign: 'center',
+      color: '#1a73e8',
     },
-    label: {
+    sectionContainer: {
+      marginBottom: 20,
+    },
+    sectionTitle: {
       fontSize: 16,
-      marginBottom: 5,
-      fontWeight: '500',
+      fontWeight: '600',
+      marginBottom: 6,
+      color: '#333',
     },
-    input: {
-      height: 40,
-      borderColor: '#ddd',
-      borderWidth: 1,
-      borderRadius: 5,
-      marginBottom: 15,
-      paddingHorizontal: 10,
+    sectionSubtitle: {
+      fontSize: 12,
+      color: '#888',
+      marginBottom: 10,
+      fontStyle: 'italic',
     },
-    textArea: {
-      height: 100,
-      textAlignVertical: 'top',
-      paddingTop: 10,
-    },
-    priceContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 15,
-    },
-    dollarSign: {
-      fontSize: 18,
-      marginRight: 5,
-    },
-    priceInput: {
-      flex: 1,
-      height: 40,
-      borderColor: '#ddd',
-      borderWidth: 1,
-      borderRadius: 5,
-      paddingHorizontal: 10,
-    },
-    imagePicker: {
-      height: 100,
-      borderStyle: 'dashed',
-      borderColor: '#ccc',
-      borderWidth: 1,
-      borderRadius: 5,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 15,
-    },
-    imagePickerText: {
-      color: '#2196F3',
-    },
-    imagesContainer: {
+    imagesRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      marginBottom: 15,
     },
     imageWrapper: {
       position: 'relative',
       width: 100,
       height: 100,
-      margin: 5,
+      margin: 4,
+      borderRadius: 8,
+      overflow: 'hidden',
     },
     imagePreview: {
       width: '100%',
       height: '100%',
-      borderRadius: 5,
     },
     removeButton: {
       position: 'absolute',
-      top: -10,
-      right: -10,
-      backgroundColor: 'red',
-      width: 24,
-      height: 24,
-      borderRadius: 12,
+      top: 5,
+      right: 5,
+      backgroundColor: 'rgba(255, 0, 0, 0.8)',
+      width: 22,
+      height: 22,
+      borderRadius: 11,
       justifyContent: 'center',
       alignItems: 'center',
     },
     removeButtonText: {
       color: 'white',
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: 'bold',
     },
-    button: {
-      backgroundColor: '#2196F3',
-      padding: 14,
-      borderRadius: 5,
+    addImageButton: {
+      width: 100,
+      height: 100,
+      margin: 4,
+      borderWidth: 1,
+      borderColor: '#ccc',
+      borderStyle: 'dashed',
+      borderRadius: 8,
+      justifyContent: 'center',
       alignItems: 'center',
-      marginVertical: 20,
+      backgroundColor: '#f9f9f9',
+    },
+    addImageContent: {
+      alignItems: 'center',
+    },
+    plusIcon: {
+      fontSize: 24,
+      color: '#1a73e8',
+      marginBottom: 4,
+    },
+    addImageText: {
+      fontSize: 12,
+      color: '#1a73e8',
+    },
+    fieldContainer: {
+      marginBottom: 16,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '500',
+      marginBottom: 8,
+      color: '#333',
+    },
+    required: {
+      color: '#e53935',
+    },
+    input: {
+      height: 50,
+      borderWidth: 1,
+      borderColor: '#ddd',
+      borderRadius: 8,
+      paddingHorizontal: 15,
+      backgroundColor: 'white',
+      fontSize: 16,
+    },
+    textArea: {
+      height: 120,
+      textAlignVertical: 'top',
+      paddingTop: 12,
+      paddingBottom: 12,
+    },
+    priceContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#ddd',
+      borderRadius: 8,
+      backgroundColor: 'white',
+    },
+    dollarSign: {
+      paddingLeft: 15,
+      fontSize: 18,
+      color: '#333',
+    },
+    priceInput: {
+      flex: 1,
+      height: 50,
+      paddingHorizontal: 5,
+      fontSize: 16,
+    },
+    dropdown: {
+      height: 50,
+      borderWidth: 1,
+      borderColor: '#ddd',
+      borderRadius: 8,
+      paddingHorizontal: 15,
+      backgroundColor: 'white',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    dropdownSelectedText: {
+      fontSize: 16,
+      color: '#333',
+    },
+    dropdownPlaceholder: {
+      fontSize: 16,
+      color: '#aaa',
+    },
+    dropdownArrow: {
+      fontSize: 12,
+      color: '#777',
+    },
+    locationContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#ddd',
+      borderRadius: 8,
+      backgroundColor: 'white',
+    },
+    locationIcon: {
+      paddingLeft: 15,
+      fontSize: 16,
+    },
+    locationInput: {
+      flex: 1,
+      height: 50,
+      paddingHorizontal: 5,
+      fontSize: 16,
+    },
+    infoBox: {
+      backgroundColor: '#e3f2fd',
+      borderRadius: 8,
+      padding: 12,
+      flexDirection: 'row',
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: '#bbdefb',
+    },
+    infoIcon: {
+      fontSize: 16,
+      marginRight: 8,
+    },
+    infoText: {
+      flex: 1,
+      fontSize: 12,
+      color: '#0d47a1',
+      lineHeight: 18,
+    },
+    button: {
+      backgroundColor: '#1a73e8',
+      height: 54,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
     },
     buttonDisabled: {
-      backgroundColor: '#A9A9A9',
+      backgroundColor: '#9e9e9e',
     },
     buttonText: {
       color: 'white',
-      fontWeight: 'bold',
       fontSize: 16,
+      fontWeight: 'bold',
     },
-  });
+    requiredNote: {
+      textAlign: 'center',
+      fontSize: 12,
+      color: '#777',
+      marginBottom: 20,
+    },
+    bottomSpacer: {
+      height: 40,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      width: '80%',
+      backgroundColor: 'white',
+      borderRadius: 12,
+      padding: 16,
+      maxHeight: '70%',
+    },
+    imageModalContent: {
+      width: '80%',
+      backgroundColor: 'white',
+      borderRadius: 12,
+      padding: 16,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 12,
+      textAlign: 'center',
+      color: '#333',
+    },
+    modalScrollView: {
+      maxHeight: 300,
+    },
+    modalItem: {
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: '#eee',
+    },
+    modalItemText: {
+      fontSize: 16,
+      color: '#333',
+    },
+    modalCloseButton: {
+      marginTop: 16,
+      paddingVertical: 12,
+      alignItems: 'center',
+      backgroundColor: '#f5f5f5',
+      borderRadius: 8,
+    },
+    modalCloseButtonText: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: '#777',
+    },
+    imageModalButton: {
+      paddingVertical: 14,
+      alignItems: 'center',
+      borderRadius: 8,
+      marginBottom: 10,
+    },
+    cameraButton: {
+      backgroundColor: '#1a73e8',
+    },
+    galleryButton: {
+      backgroundColor: '#43a047',
+    },
+    cancelButton: {
+      backgroundColor: '#f5f5f5',
+    },
+    imageModalButtonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '500',
+    },
+    cancelButtonText: {
+      color: '#777',
+      fontSize: 16,
+      fontWeight: '500',
+    }
+});

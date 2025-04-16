@@ -35,7 +35,7 @@ export const USERS_COLLECTION_ID = 'users';
 export const LISTINGS_COLLECTION_ID = 'listings';
 export const IMAGES_COLLECTION_ID = 'images';
 export const IMAGES_BUCKET_ID = 'listing-images';
-export const CHATS_COLLECTION_ID = '67e834c60026698fc1c8';
-export const MESSAGES_COLLECTION_ID = '67e834c90039d2a6f82f';
+export const CHATS_COLLECTION_ID = '67fc151b00269d9b1221';
+export const MESSAGES_COLLECTION_ID = '67fc151e003681b8ba54';
 
 export { client, account, databases, storage, getImageUrl };

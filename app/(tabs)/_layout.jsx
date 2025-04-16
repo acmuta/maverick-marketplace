@@ -38,6 +38,7 @@ export default function TabLayout() {
             <Ionicons name="add-circle" size={size} color={color} />
           ),
           headerTitle: 'Create New Listing',
+          headerShown: false,
         }}
       />
       
