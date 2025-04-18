@@ -23,6 +23,7 @@ export default function ListingForm({ navigation: externalNavigation }){
     const [location, setLocation] = useState('');
     const [images, setImages] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({});
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
@@ -155,27 +156,16 @@ export default function ListingForm({ navigation: externalNavigation }){
     };
 
     const validateForm = () => {
-      if (!title.trim()) {
-        alert('Title is required');
-        return false;
-      }
-        
-      if (!description.trim()) {
-        alert('Description is required');
-        return false;
-      }
-        
-      if (!price || isNaN(parseFloat(price)) || parseFloat(price) < 0) {
-        alert('Please enter a valid price');
-        return false;
-      }
-        
-      if (!category.trim()) {
-        alert('Category is required');
-        return false;
-      }
-        
-      return true; 
+      let errors = {};
+  
+      if (!title.trim()) errors.title = "Title is required.";
+      if (!description.trim()) errors.description = "Description cannot be empty.";
+      if (!price || isNaN(parseFloat(price)) || parseFloat(price) < 0) errors.price = "Enter a valid price.";
+      if (!category.trim()) errors.category = "Category is required.";
+  
+      setFieldErrors(errors);
+  
+      return Object.keys(errors).length === 0;
     };
     
     const submitListing = async () => {
@@ -183,7 +173,7 @@ export default function ListingForm({ navigation: externalNavigation }){
 
         setIsSubmitting(true);
 
-        try{
+        try {
             const listingId = ID.unique();
 
             await databases.createDocument(
@@ -262,7 +252,9 @@ export default function ListingForm({ navigation: externalNavigation }){
     const selectCategory = (selectedCategory) => {
       setCategory(selectedCategory);
       setShowCategoryDropdown(false);
+      setFieldErrors(prev => ({ ...prev, category: null }));
     };
+    
     const selectCondition = (selectedCondition) => {
       setCondition(selectedCondition);
       setShowConditionDropdown(false);
@@ -310,33 +302,54 @@ export default function ListingForm({ navigation: externalNavigation }){
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, fieldErrors.title && styles.errorInput]}
             value={title}
-            onChangeText={setTitle}
+            onChangeText={(text) => {
+              setTitle(text);
+              setFieldErrors(prev => ({ 
+                ...prev, 
+                title: text.trim() === "" ? "Title is required." : null 
+              }));
+            }}
             placeholder="What are you selling?"
           />
+          {fieldErrors.title && <Text style={styles.errorText}>{fieldErrors.title}</Text>}
         </View>
         
         {/* Price Field */}
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Price <Text style={styles.required}>*</Text></Text>
-          <View style={styles.priceContainer}>
+          <View style={[styles.priceContainer, fieldErrors.price && styles.errorInput]}>
             <Text style={styles.dollarSign}>$</Text>
             <TextInput
               style={styles.priceInput}
               value={price}
-              onChangeText={setPrice}
+              onChangeText={(text) => {
+                setPrice(text);
+                const parsedPrice = parseFloat(text);
+                let errorMessage = null;
+    
+                if (text.trim() === "") {
+                  errorMessage = "Enter a valid price.";
+                } else if (isNaN(parsedPrice)) {
+                  errorMessage = "Price must be a number.";
+                } else if (parsedPrice < 0) {
+                  errorMessage = "Price cannot be negative.";
+                }
+                setFieldErrors(prev => ({ ...prev, price: errorMessage }));
+              }}
               placeholder="0.00"
               keyboardType="decimal-pad"
             />
           </View>
+          {fieldErrors.price && <Text style={styles.errorText}>{fieldErrors.price}</Text>}
         </View>
         
         {/* Category Field */}
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Category <Text style={styles.required}>*</Text></Text>
           <TouchableOpacity 
-            style={styles.dropdown} 
+            style={[styles.dropdown, fieldErrors.category && styles.errorInput]} 
             onPress={() => setShowCategoryDropdown(true)}
           >
             <Text style={category ? styles.dropdownSelectedText : styles.dropdownPlaceholder}>
@@ -344,6 +357,7 @@ export default function ListingForm({ navigation: externalNavigation }){
             </Text>
             <Text style={styles.dropdownArrow}>▼</Text>
           </TouchableOpacity>
+          {fieldErrors.category && <Text style={styles.errorText}>{fieldErrors.category}</Text>}
         </View>
         
         {/* Condition Field */}
@@ -378,13 +392,20 @@ export default function ListingForm({ navigation: externalNavigation }){
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Description <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[styles.input, styles.textArea, fieldErrors.description && styles.errorInput]}
             value={description}
-            onChangeText={setDescription}
+            onChangeText={(text) => {
+              setDescription(text);
+              setFieldErrors(prev => ({ 
+                ...prev, 
+                description: text.trim() === "" ? "Description cannot be empty." : null 
+              }));
+            }}
             placeholder="Describe your item in detail. Include any relevant information that buyers would want to know."
             multiline
             numberOfLines={6}
           />
+          {fieldErrors.description && <Text style={styles.errorText}>{fieldErrors.description}</Text>}
         </View>
         
         {/* Info Box */}
@@ -521,6 +542,22 @@ export default function ListingForm({ navigation: externalNavigation }){
     container: {
       flex: 1,
       backgroundColor: '#f5f5f7',
+    },
+    containerCenter: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    message: {
+      fontSize: 18,
+      marginBottom: 20,
+      textAlign: 'center',
     },
     scrollContent: {
       padding: 16,
@@ -814,5 +851,14 @@ export default function ListingForm({ navigation: externalNavigation }){
       color: '#777',
       fontSize: 16,
       fontWeight: '500',
+    },
+    errorInput: {
+      borderColor: 'red',
+    },
+    errorText: {
+      color: 'red',
+      fontSize: 12,
+      marginTop: 4,
+      marginBottom: 4,
     }
-});
+  });
