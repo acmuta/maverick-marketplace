@@ -4,8 +4,8 @@ const client = new sdk.Client();
 
 client
     .setEndpoint('http://localhost/v1')
-    .setProject('67e728450014b2d21858')  // Update with your project ID
-    .setKey('standard_aea5c51f24cd4daba56f4890061372862f96f92a910fa0258c81b0ba67d3c9c4d6d69aa8f06315f30b2106a55e20f3f49618b8453088803b385dd2c5292cc9ec84bd23137be8060478ef22123514bb5f27113540037be74b96ca0ea60119226d2f6c6c248c88cb84b7a723e1dd5cd9cce9036267a10a2c36ee460219371d23f3'); // Replace with your API key
+    .setProject('67e4b3a30013f83c7a98')  // Update with your project ID
+    .setKey('standard_99b485055b59d0b52f040c27588a4fd7438e8a13e3706bdfbfc00fddd2775f7b5eb9fb4bdb450a6dc3979acce59768e312e7236bd7697e7b163831679dff03a71928f8104404c052ba24573f969cf9d05b4d363fa83269a51076ec6aa8f62ddaf7699cbaac1e5cbea68d3df8641779ce9a321eaea16a2efc31f5a8f2498192c0'); // Replace with your API key
 
 const databases = new sdk.Databases(client);
 
@@ -17,7 +17,7 @@ async function setupChatCollections() {
         console.log('Starting Chat Collections setup...');
         
         // Get the existing database ID
-        const DATABASE_ID = '67e72aef00071555f538';  // Update with your database ID
+        const DATABASE_ID = '67fc14630023511bae40';  // Update with your database ID
         console.log(`Using existing database: ${DATABASE_ID}`);
 
         // Create chats collection
