@@ -27,7 +27,6 @@ export default function ListingForm({ navigation: externalNavigation }){
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
-    const [showImageSourceDialog, setShowImageSourceDialog] = useState(false);
     const [showConditionDropdown, setShowConditionDropdown] = useState(false);
 
     const categories = [
@@ -86,73 +85,88 @@ export default function ListingForm({ navigation: externalNavigation }){
         );       
     }
 
-    const requestPermissions = async () => {
-        const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-        const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        
-        if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
-            Alert.alert(
-                'Permissions Required',
-                'We need camera and photo library permissions to upload images',
-                [{ text: 'OK' }]
-            );
-            return false;
-        }
-        return true;
+    // Simple function to handle image selection
+    const handleSelectImage = () => {
+      Alert.alert(
+        'Add Photo',
+        'Choose a source',
+        [
+          {
+            text: 'Take Photo',
+            onPress: () => selectImageFromCamera(),
+          },
+          {
+            text: 'Choose from Gallery',
+            onPress: () => selectImageFromGallery(),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ],
+        { cancelable: true }
+      );
     };
 
-    const pickImageFromGallery = async () => {
-      setShowImageSourceDialog(false);
-      const hasPermission = await requestPermissions();
-      if (!hasPermission) return;
-    
+    // Select image from gallery without using a modal
+    const selectImageFromGallery = async () => {
       try {
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 0.7,
-        });
-    
-        if (!result.canceled && result.assets && result.assets.length > 0) {
-          setImages([...images, result.assets[0]]);
+        // Request permissions first
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Permission to access gallery was denied');
+          return;
         }
-      } catch (error) {
-        console.error('Error picking image:', error);
-        alert('Failed to pick image from gallery');
-      }
-    };
-    
-    const takePhotoWithCamera = async () => {
-      setShowImageSourceDialog(false);
-      const hasPermission = await requestPermissions();
-      if (!hasPermission) return;
-    
-      try {
-        const result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ['images'],
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 0.7,
+
+        // Simplified options for better compatibility
+        const pickerResult = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
+          quality: 0.5,
         });
-    
-        if (!result.canceled && result.assets && result.assets.length > 0) {
-          setImages([...images, result.assets[0]]);
+
+        if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+          const newImagesArray = [...images, pickerResult.assets[0]];
+          setImages(newImagesArray);
         }
-      } catch (error) {
-        console.error('Error taking photo:', error);
-        alert('Failed to take photo');
+      } catch (err) {
+        console.error('Error selecting from gallery:', err);
+        Alert.alert('Error', 'Could not select image from gallery');
       }
     };
 
-    const showImagePickerOptions = () => {
-        setShowImageSourceDialog(true);
+    // Take photo with camera without using a modal
+    const selectImageFromCamera = async () => {
+      try {
+        // Request permissions first
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Permission to access camera was denied');
+          return;
+        }
+
+        // Simplified options for better compatibility
+        const pickerResult = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
+          quality: 0.5,
+        });
+
+        if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+          const newImagesArray = [...images, pickerResult.assets[0]];
+          setImages(newImagesArray);
+        }
+      } catch (err) {
+        console.error('Error taking photo:', err);
+        Alert.alert('Error', 'Could not take photo');
+      }
     };
 
+    // Remove image at specified index
     const removeImage = (index) => {
-      const updatedImages = [...images];
-      updatedImages.splice(index, 1);
-      setImages(updatedImages);
+      const newImages = [...images];
+      newImages.splice(index, 1);
+      setImages(newImages);
     };
 
     const validateForm = () => {
@@ -287,7 +301,7 @@ export default function ListingForm({ navigation: externalNavigation }){
             
             <TouchableOpacity 
               style={styles.addImageButton} 
-              onPress={() => setShowImageSourceDialog(true)}
+              onPress={handleSelectImage}
             >
               <View style={styles.addImageContent}>
                 <Text style={styles.plusIcon}>+</Text>
@@ -502,37 +516,6 @@ export default function ListingForm({ navigation: externalNavigation }){
           </Pressable>
         </Modal>
         
-        {/* Image Source Modal */}
-        <Modal
-          visible={showImageSourceDialog}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowImageSourceDialog(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.imageModalContent}>
-              <Text style={styles.modalTitle}>Add Photo</Text>
-              <TouchableOpacity
-                style={[styles.imageModalButton, styles.cameraButton]}
-                onPress={takePhotoWithCamera}
-              >
-                <Text style={styles.imageModalButtonText}>📸 Take Photo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.imageModalButton, styles.galleryButton]}
-                onPress={pickImageFromGallery}
-              >
-                <Text style={styles.imageModalButtonText}>🖼️ Choose from Gallery</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.imageModalButton, styles.cancelButton]}
-                onPress={() => setShowImageSourceDialog(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
       </ScrollView>
     );
   }
@@ -789,12 +772,6 @@ export default function ListingForm({ navigation: externalNavigation }){
       padding: 16,
       maxHeight: '70%',
     },
-    imageModalContent: {
-      width: '80%',
-      backgroundColor: 'white',
-      borderRadius: 12,
-      padding: 16,
-    },
     modalTitle: {
       fontSize: 18,
       fontWeight: 'bold',
@@ -826,31 +803,6 @@ export default function ListingForm({ navigation: externalNavigation }){
       fontWeight: '500',
       color: '#777',
     },
-    imageModalButton: {
-      paddingVertical: 14,
-      alignItems: 'center',
-      borderRadius: 8,
-      marginBottom: 10,
-    },
-    cameraButton: {
-      backgroundColor: '#1a73e8',
-    },
-    galleryButton: {
-      backgroundColor: '#43a047',
-    },
-    cancelButton: {
-      backgroundColor: '#f5f5f5',
-    },
-    imageModalButtonText: {
-      color: 'white',
-      fontSize: 16,
-      fontWeight: '500',
-    },
-    cancelButtonText: {
-      color: '#777',
-      fontSize: 16,
-      fontWeight: '500',
-    },
     errorInput: {
       borderColor: 'red',
     },
@@ -859,5 +811,16 @@ export default function ListingForm({ navigation: externalNavigation }){
       fontSize: 12,
       marginTop: 4,
       marginBottom: 4,
+    },
+    loadingOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 12,
     }
   });
