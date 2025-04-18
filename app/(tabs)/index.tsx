@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, RefreshControl, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Query, Models } from 'react-native-appwrite';
-import { databases, storage, account, getImageUrl, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, IMAGES_BUCKET_ID } from '../../appwrite/config';
+import { Query, Models, ID } from 'react-native-appwrite';
+import { databases, storage, account, getImageUrl, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, IMAGES_BUCKET_ID, USERS_COLLECTION_ID } from '../../appwrite/config';
 import ListingGrid from '../components/ListingGrid';
 
 interface Listing {
@@ -22,7 +22,6 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Check if user is logged in
   useEffect(() => {
     checkSession();
   }, []);
@@ -38,12 +37,54 @@ export default function HomeScreen() {
         if (session) {
           const user = await account.get();
           setLoggedInUser(user);
+          
+          // Check if user has a profile, create one if needed
+          await ensureUserHasProfile(user);
         }
       } catch (error) {
         console.log('No active session found');
       }
     } catch (error) {
       console.error('Session error:', error);
+    }
+  };
+
+  const ensureUserHasProfile = async (user) => {
+    if (!user) return;
+    
+    try {
+      const profileResponse = await databases.listDocuments(
+        DATABASE_ID,
+        USERS_COLLECTION_ID,
+        [Query.equal('userId', user.$id)]
+      );
+      
+      if (profileResponse.documents.length === 0) {
+        console.log('No profile found for user, creating one...');
+        
+        try {
+          await databases.createDocument(
+            DATABASE_ID,
+            USERS_COLLECTION_ID,
+            ID.unique(),
+            {
+              userId: user.$id,
+              displayName: user.name || '',
+              bio: '',
+              contactEmail: '',
+              phoneNumber: '',
+              createdAt: new Date().toISOString(),
+            }
+          );
+          console.log('Profile created successfully');
+        } catch (createError) {
+          console.error('Error creating profile:', createError);
+        }
+      } else {
+        console.log('User profile already exists');
+      }
+    } catch (error) {
+      console.error('Error checking for user profile:', error);
     }
   };
 
@@ -55,9 +96,7 @@ export default function HomeScreen() {
       console.log("Fetching with endpoint:", process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT);
       console.log("Project ID:", process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID);
       
-      // First test if we can list databases at all
       try {
-        // Just try to fetch the listings directly
         const response = await databases.listDocuments(
           DATABASE_ID,
           LISTINGS_COLLECTION_ID,
@@ -86,7 +125,6 @@ export default function HomeScreen() {
               if (imagesResponse.documents.length > 0) {
                 const fileId = imagesResponse.documents[0].fileId;
                 try {
-                  // Use the helper function to get URL
                   const imageUrl = getImageUrl(IMAGES_BUCKET_ID, fileId, 400, 300);
                   console.log("Generated image URL:", imageUrl);
                   listing.imageUrl = imageUrl;

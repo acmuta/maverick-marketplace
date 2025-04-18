@@ -105,16 +105,16 @@ export default function ListingForm({ navigation: externalNavigation }){
       setShowImageSourceDialog(false);
       const hasPermission = await requestPermissions();
       if (!hasPermission) return;
-  
+    
       try {
         const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ['images'],
           allowsEditing: true,
           aspect: [4, 3],
-          quality: 0.8,
+          quality: 0.7,
         });
-  
-        if (!result.canceled) {
+    
+        if (!result.canceled && result.assets && result.assets.length > 0) {
           setImages([...images, result.assets[0]]);
         }
       } catch (error) {
@@ -122,21 +122,21 @@ export default function ListingForm({ navigation: externalNavigation }){
         alert('Failed to pick image from gallery');
       }
     };
-
+    
     const takePhotoWithCamera = async () => {
       setShowImageSourceDialog(false);
       const hasPermission = await requestPermissions();
       if (!hasPermission) return;
-  
+    
       try {
         const result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ['images'],
           allowsEditing: true,
           aspect: [4, 3],
-          quality: 0.8,
+          quality: 0.7,
         });
-  
-        if (!result.canceled) {
+    
+        if (!result.canceled && result.assets && result.assets.length > 0) {
           setImages([...images, result.assets[0]]);
         }
       } catch (error) {
@@ -196,8 +196,7 @@ export default function ListingForm({ navigation: externalNavigation }){
             if (images.length > 0) {
                 await Promise.all(images.map(async (image, index) => {
                   try {
-                    const uriParts = image.uri.split('/');
-                    const fileName = uriParts[uriParts.length - 1];
+                    const fileName = image.uri.split('/').pop() || 'image.jpg';
                     const fileId = ID.unique();
                     
                     const formData = new FormData();

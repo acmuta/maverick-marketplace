@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ID } from 'react-native-appwrite';
-import { account } from '../appwrite/config';
+import { account, databases, DATABASE_ID, USERS_COLLECTION_ID } from '../appwrite/config';
 
 export default function LoginScreen() {
   const [mode, setMode] = useState('login');
@@ -69,25 +69,35 @@ export default function LoginScreen() {
 
       if (mode === 'login') {
         // Log in the user
-        const session = await account.createEmailPasswordSession(email, password);
-        console.log("Session created:", session);
-
-        try {
-          const verifySession = await account.getSession('current');
-          console.log("Verified session:", verifySession);
-        } catch (sessionError) {
-          console.error("Session verification failed:", sessionError);
-        }
-
+        await account.createEmailPasswordSession(email, password);
+        console.log("Session created for login");
       } else {
         // Register a new user
         const user = await account.create(ID.unique(), email, password, name);
         
         console.log("User created:", user);
+        
+        await account.createEmailPasswordSession(email, password);
+        console.log("Session created for new user");
 
-        const session = await account.createEmailPasswordSession(email, password);
-        console.log("Session created:", session);
-
+        try{
+            await databases.createDocument(
+                DATABASE_ID,
+                USERS_COLLECTION_ID,
+                ID.unique(),
+                {
+                    userId: user.$id,
+                    displayName: name,
+                    bio: '',
+                    contactEmail: '',
+                    phoneNumber: '',
+                    createdAt: new Date().toISOString(),
+                }
+            );
+            console.log("Default profile created for user");
+        } catch (profileError){
+            console.error("Error creating default profile:", profileError);
+        }
       }
       
       // Navigate to the main app
