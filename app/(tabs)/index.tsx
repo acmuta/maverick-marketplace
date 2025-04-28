@@ -1,10 +1,11 @@
 // app/(tabs)/index.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, StatusBar, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Query, Models } from 'react-native-appwrite';
 import { databases, storage, account, getImageUrl, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, IMAGES_BUCKET_ID } from '../../appwrite/config';
 import ListingGrid from '../components/ListingGrid';
+import SearchBar from '../components/SearchBar'; // Import the new SearchBar component
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -152,6 +153,10 @@ export default function HomeScreen() {
     }
   };
 
+  const navigateToSearch = () => {
+    router.push('/search');
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.darkBlue} />
@@ -184,6 +189,18 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
+      </View>
+      
+      {/* Search Bar */}
+      <View style={styles.searchBarWrapper}>
+        <TouchableOpacity 
+          style={styles.searchBarButton} 
+          onPress={navigateToSearch}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="search" size={20} color={COLORS.mediumGray} style={styles.searchIcon} />
+          <Text style={styles.searchPlaceholder}>Search listings...</Text>
+        </TouchableOpacity>
       </View>
   
       {/* Main Content */}
@@ -292,6 +309,30 @@ const styles = StyleSheet.create({
   loginButtonText: {
     color: COLORS.white,
     fontWeight: '600',
+    fontSize: 14,
+  },
+  searchBarWrapper: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: COLORS.mediumBlue,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  searchBarButton: {
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchPlaceholder: {
+    color: COLORS.mediumGray,
     fontSize: 14,
   },
   mainContent: {

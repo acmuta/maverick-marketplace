@@ -141,15 +141,15 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 50,
     borderRadius: 25,
   },
   activeTabItem: {
     backgroundColor: 'rgba(255,152,0,0.15)',
     borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    // paddingVertical: 8,
+    // paddingHorizontal: 16,
   }
 });

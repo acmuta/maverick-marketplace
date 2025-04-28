@@ -19,11 +19,10 @@ export default function ListingGrid({ listing, isLoading, refreshing, onRefresh 
                 }}
                 style={{...styles.image, minWidth: 150, minHeight: 150}}
                 contentFit="cover"
-                cachePolicy="none"
+                cachePolicy="disk"
                 transition={300}
                 onError={(error) => {
                   console.error("Image error:", error);
-                  // If in a real app, you could set a fallback image here
                 }}
             />
         ) : (
