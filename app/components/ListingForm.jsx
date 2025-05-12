@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, TextInput, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Modal, Pressable, Platform, StatusBar } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { ID } from 'react-native-appwrite';
+import { ID, Role, Permission } from 'react-native-appwrite';
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
 import {
     account,
@@ -181,22 +181,31 @@ export default function ListingForm() {
 
         try {
             const listingId = ID.unique();
-
+            const documentData = {
+              title: title.trim(),
+              description: description.trim(),
+              price: parseFloat(price),
+              category: category.trim(),
+              condition: condition.trim(),
+              location: location.trim(),
+              userId: currentUser.$id,
+              createdAt: new Date().toISOString(),
+              status: 'active',
+            };
+            
+            console.log('Creating document with data:', JSON.stringify(documentData, null, 2));
+            console.log('Using collection ID:', LISTINGS_COLLECTION_ID);
+            console.log('Using database ID:', DATABASE_ID);
             await databases.createDocument(
                 DATABASE_ID,
                 LISTINGS_COLLECTION_ID,
                 listingId,
-                {
-                  title: title.trim(),
-                  description: description.trim(),
-                  price: parseFloat(price),
-                  category: category.trim(),
-                  condition: condition.trim(),
-                  location: location.trim(),
-                  userId: currentUser.$id,
-                  createdAt: new Date().toISOString(),
-                  status: 'active',
-                }
+                documentData,
+                [
+                  Permission.read(Role.any()),
+                  Permission.update(Role.user(currentUser.$id)),
+                  Permission.delete(Role.user(currentUser.$id))
+                ]
             );
 
             if (images.length > 0) {
