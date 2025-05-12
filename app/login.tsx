@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ID } from 'react-native-appwrite';
-import { account, databases, DATABASE_ID, USERS_COLLECTION_ID } from '../appwrite/config';
+import { account, databases, DATABASE_ID, USERS_COLLECTION_ID } from '../appwrite';
 import { Ionicons } from '@expo/vector-icons';
 
 // Define theme colors to match tab layout

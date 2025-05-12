@@ -4,7 +4,7 @@ import { Query } from 'react-native-appwrite';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { account, databases, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID } from '../../appwrite/config';
+import { account, databases, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
 import UserProfileForm from '../components/UserProfileForm';
 
 // Define consistent theme colors - matching home page

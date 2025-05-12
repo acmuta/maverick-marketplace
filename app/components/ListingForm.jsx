@@ -12,7 +12,7 @@ import {
     LISTINGS_COLLECTION_ID,
     IMAGES_COLLECTION_ID,
     IMAGES_BUCKET_ID 
-} from '../../appwrite/config';
+} from '../../appwrite';
 
 const COLORS = {
   darkBlue: '#0A1929',

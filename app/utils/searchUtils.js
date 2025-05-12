@@ -9,7 +9,7 @@ import {
   LISTINGS_COLLECTION_ID,
   IMAGES_COLLECTION_ID,
   IMAGES_BUCKET_ID 
-} from '../../appwrite/config';
+} from '../../appwrite';
 
 // Storage keys
 const RECENT_SEARCHES_KEY = 'maverickMarketplace_recentSearches';

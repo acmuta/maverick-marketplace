@@ -25,7 +25,7 @@ import {
   CHATS_COLLECTION_ID, 
   MESSAGES_COLLECTION_ID, 
   USERS_COLLECTION_ID 
-} from '../../appwrite/config';
+} from '../../appwrite';
 
 export default function ChatDetail(){
     const { id: chatId } = useLocalSearchParams();

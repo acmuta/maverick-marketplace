@@ -23,7 +23,7 @@ import {
   IMAGES_COLLECTION_ID, 
   USERS_COLLECTION_ID, 
   IMAGES_BUCKET_ID 
-} from '../../appwrite/config';
+} from '../../appwrite';
 import { Ionicons } from '@expo/vector-icons';
 
 // Define consistent theme colors

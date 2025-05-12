@@ -19,7 +19,7 @@ import {
   DATABASE_ID, 
   CHATS_COLLECTION_ID,
   USERS_COLLECTION_ID
-} from '../../appwrite/config';
+} from '../../appwrite';
 
 // Define consistent theme colors - matching home page
 const COLORS = {

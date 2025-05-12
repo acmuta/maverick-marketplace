@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { account } from '../../appwrite/config';
+import { account } from '../../appwrite';
 
 export default function ChatList() {
     const [isLoading, setIsLoading] = useState(true);

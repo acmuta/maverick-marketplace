@@ -24,7 +24,7 @@ import {
   MESSAGES_COLLECTION_ID,
   LISTINGS_COLLECTION_ID,
   USERS_COLLECTION_ID
-} from '../../appwrite/config';
+} from '../../appwrite';
 
 export default function NewChatScreen() {
   const { listingId, sellerId } = useLocalSearchParams();
