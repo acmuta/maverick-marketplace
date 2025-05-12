@@ -1,0 +1,123 @@
+Arguments: 
+  /Users/prajit/.nvm/versions/node/v20.19.1/bin/node /opt/homebrew/Cellar/yarn/1.22.19/libexec/bin/yarn.js install --ignore-scripts
+
+PATH: 
+  /Users/prajit/.nvm/versions/node/v20.19.1/bin:/Users/prajit/google-cloud-sdk/bin:/Users/prajit/bin:/opt/homebrew/opt/llvm/bin:/Users/prajit/.npm-global/bin:/opt/homebrew/opt/mysql-client/bin:/Users/prajit/google-cloud-sdk/bin:/Users/prajit/bin:/opt/homebrew/opt/llvm/bin:/opt/homebrew/anaconda3/bin:/opt/homebrew/anaconda3/condabin:/Users/prajit/.npm-global/bin:/opt/homebrew/opt/mysql-client/bin:/Library/Frameworks/Python.framework/Versions/3.12/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/Library/TeX/texbin:/Users/prajit/.cargo/bin:/Applications/iTerm.app/Contents/Resources/utilities
+
+Yarn version: 
+  1.22.19
+
+Node version: 
+  20.19.1
+
+Platform: 
+  darwin arm64
+
+Trace: 
+  Invariant Violation: could not find a copy of react-native to link in /Users/prajit/Desktop/projects/maverick-marketplace/node_modules/react-native-appwrite/node_modules
+      at invariant (/opt/homebrew/Cellar/yarn/1.22.19/libexec/lib/cli.js:2318:15)
+      at PackageLinker.<anonymous> (/opt/homebrew/Cellar/yarn/1.22.19/libexec/lib/cli.js:48522:7)
+      at Generator.next (<anonymous>)
+      at step (/opt/homebrew/Cellar/yarn/1.22.19/libexec/lib/cli.js:310:30)
+      at /opt/homebrew/Cellar/yarn/1.22.19/libexec/lib/cli.js:321:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+npm manifest: 
+  {
+    "name": "maverick-marketplace",
+    "main": "expo-router/entry",
+    "version": "1.0.0",
+    "scripts": {
+      "setup": "node setup-dev.js",
+      "setup-appwrite": "node setup-appwrite.js",
+      "start": "expo start",
+      "android": "expo start --android",
+      "ios": "expo start --ios",
+      "web": "cross-env WEB=true EXPO_OS=web expo start --web",
+      "test": "jest --watchAll",
+      "lint": "expo lint",
+      "network": "EXPO_ROUTER_APP_ROOT=./app EXPO_ROUTER_IMPORT_MODE=sync expo start --lan",
+      "tunnel": "EXPO_ROUTER_APP_ROOT=./app EXPO_ROUTER_IMPORT_MODE=sync expo start --tunnel",
+      "global": "node global-tunnel.js",
+      "m1-global": "node m1-mac-global.js",
+      "win-setup": "node setup-dev.js",
+      "win-start": "set EXPO_ROUTER_APP_ROOT=./app&&set EXPO_ROUTER_IMPORT_MODE=sync&&expo start",
+      "win-network": "set EXPO_ROUTER_APP_ROOT=./app&&set EXPO_ROUTER_IMPORT_MODE=sync&&expo start --lan",
+      "win-tunnel": "set EXPO_ROUTER_APP_ROOT=./app&&set EXPO_ROUTER_IMPORT_MODE=sync&&expo start --tunnel",
+      "win-global": "node global-tunnel.js",
+      "restart-appwrite": "cd appwrite && docker-compose down && docker-compose up -d"
+    },
+    "dependencies": {
+      "@expo-google-fonts/poppins": "^0.3.0",
+      "@expo/react-native-action-sheet": "^4.1.1",
+      "@expo/vector-icons": "^14.0.2",
+      "@react-native-async-storage/async-storage": "^2.1.2",
+      "@react-native-picker/picker": "2.11.0",
+      "@react-navigation/bottom-tabs": "^7.0.0",
+      "@react-navigation/material-top-tabs": "^7.2.10",
+      "@react-navigation/native": "^7.0.0",
+      "appwrite": "^17.0.1",
+      "dotenv": "^16.3.1",
+      "expo": "^53.0.8",
+      "expo-blur": "~14.1.4",
+      "expo-constants": "~17.1.6",
+      "expo-file-system": "~18.1.9",
+      "expo-font": "~13.3.1",
+      "expo-haptics": "~14.1.4",
+      "expo-image": "~2.1.7",
+      "expo-image-picker": "^16.0.6",
+      "expo-linking": "~7.1.4",
+      "expo-router": "~5.0.6",
+      "expo-splash-screen": "~0.30.8",
+      "expo-status-bar": "~2.2.3",
+      "expo-symbols": "~0.4.4",
+      "expo-system-ui": "~5.0.7",
+      "expo-web-browser": "^14.1.6",
+      "metro-react-native-babel-transformer": "^0.77.0",
+      "react": "19.0.0",
+      "react-dom": "19.0.0",
+      "react-native": "0.79.2",
+      "react-native-appwrite": "^0.7.2",
+      "react-native-gesture-handler": "~2.24.0",
+      "react-native-pager-view": "^6.7.0",
+      "react-native-reanimated": "~3.17.4",
+      "react-native-safe-area-context": "5.4.0",
+      "react-native-screens": "^4.10.0",
+      "react-native-tab-view": "^4.0.10",
+      "react-native-url-polyfill": "^2.0.0",
+      "react-native-web": "^0.20.0",
+      "react-native-webview": "13.13.5"
+    },
+    "devDependencies": {
+      "@babel/core": "^7.25.2",
+      "@types/jest": "^29.5.12",
+      "@types/react": "~19.0.10",
+      "@types/react-test-renderer": "^18.3.0",
+      "cross-env": "^7.0.3",
+      "jest": "^29.2.1",
+      "jest-expo": "~53.0.5",
+      "metro": "^0.82.3",
+      "metro-config": "^0.82.3",
+      "metro-react-native-babel-preset": "^0.77.0",
+      "metro-resolver": "^0.82.3",
+      "node-appwrite": "^15.0.1",
+      "typescript": "^5.3.3"
+    },
+     "overrides": {
+         "* > metro": "0.82.3",
+         "* > metro-config": "0.82.3",
+         "* > metro-resolver": "0.82.3"
+       },
+    "private": true,
+    "resolutions": {
+    "metro": "0.82.3",
+    "metro-config": "0.82.3",
+    "metro-resolver": "0.82.3"
+    }
+  }
+
+yarn manifest: 
+  No manifest
+
+Lockfile: 
+  No lockfile
