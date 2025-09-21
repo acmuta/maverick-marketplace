@@ -22,6 +22,7 @@ This project uses Appwrite Cloud for its backend. Students can often get free cr
     ```
 
 2.  **Install dependencies:**
+    * Check Node.js and `npm` installation instructions if `npm` is not installed on your local machine [https://docs.npmjs.com/downloading-and-installing-node-js-and-npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
     ```bash
     npm install
     ```
@@ -66,6 +67,7 @@ This project uses Appwrite Cloud for its backend. Students can often get free cr
     EXPO_PUBLIC_APPWRITE_PLATFORM=com.company.MaverickMarketPlace # Or your app's bundle ID / package name
 
     # API Key for setup script (this is NOT bundled with the app)
+    APPWRITE_ENDPOINT=YOUR_APPWRITE_CLOUD_ENDPOINT_URL
     APPWRITE_PROJECT_ID=YOUR_APPWRITE_CLOUD_PROJECT_ID # Same as above
     APPWRITE_API_KEY=YOUR_GENERATED_API_KEY_SECRET
 
