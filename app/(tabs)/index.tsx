@@ -41,8 +41,12 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<Models.User<Models.Preferences> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const ITEMS_PER_PAGE = 25;
 
   // Check if user is logged in
   useEffect(() => {
@@ -69,62 +73,70 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchListings = async () => {
-    setIsLoading(true);
+  const fetchListings = async (loadMore: boolean = false) => {
+    if (loadMore) {
+      setLoadingMore(true);
+    } else {
+      setIsLoading(true);
+      setOffset(0);
+      setHasMore(true);
+    }
     setError(null);
-    
+
     try {
       console.log("Fetching with endpoint:", process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT);
       console.log("Project ID:", process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID);
-      
+
       try {
-        // Just try to fetch the listings directly
+        const currentOffset = loadMore ? offset : 0;
+        let apiCallCount = 0;
+
+        // Fetch listings with pagination
+        apiCallCount++; // Count this API call
         const response = await databases.listDocuments(
           DATABASE_ID,
           LISTINGS_COLLECTION_ID,
           [
             Query.equal('status', 'active'),
-            Query.orderDesc('createdAt')
+            Query.orderDesc('createdAt'),
+            Query.limit(ITEMS_PER_PAGE),
+            Query.offset(currentOffset)
           ]
         );
-        
+
         console.log("Successfully connected to Appwrite!");
-        console.log("Found listings:", response.documents.length);
-        
-        const listingsWithImages = await Promise.all(
-          response.documents.map(async (listing) => {
-            try {
-              const imagesResponse = await databases.listDocuments(
-                DATABASE_ID,
-                IMAGES_COLLECTION_ID,
-                [
-                  Query.equal('listingId', listing.$id),
-                  Query.orderAsc('order'),
-                  Query.limit(1)
-                ]
-              );
+        console.log(`Found ${response.documents.length} listings (offset: ${currentOffset})`);
+        console.log("Using optimized primaryImageFileId - NO N+1 queries!");
 
-              if (imagesResponse.documents.length > 0) {
-                const fileId = imagesResponse.documents[0].fileId;
-                try {
-                  // Use the helper function to get URL
-                  const imageUrl = getImageUrl(IMAGES_BUCKET_ID, fileId, 400, 300);
-                  console.log("Generated image URL:", imageUrl);
-                  listing.imageUrl = imageUrl;
-                } catch (imgError) {
-                  console.error(`Error getting file view:`, imgError);
-                }
-              }
-              return listing;
-            } catch (listingError) {
-              console.error(`Error fetching images:`, listingError);
-              return listing;
-            }
-          })
-        );
+        // NO SEPARATE IMAGE QUERIES NEEDED! Use primaryImageFileId directly
+        const listingsWithImages = response.documents.map((listing) => {
+          if (listing.primaryImageFileId) {
+            // Generate image URL directly from primaryImageFileId
+            listing.imageUrl = getImageUrl(
+              IMAGES_BUCKET_ID,
+              listing.primaryImageFileId,
+              400,
+              300
+            );
+          }
+          return listing;
+        });
 
-        setListings(listingsWithImages);
-        
+        console.log(`OPTIMIZATION: Made ${apiCallCount} API call for ${listingsWithImages.length} listings`);
+        console.log(`Before optimization: Would have made ${1 + listingsWithImages.length} API calls (1 for listings + ${listingsWithImages.length} for images)`);
+        console.log(`Saved ${listingsWithImages.length} API calls = ${Math.round((listingsWithImages.length / (1 + listingsWithImages.length)) * 100)}% reduction`);
+
+        if (loadMore) {
+          setListings(prev => [...prev, ...listingsWithImages]);
+          setOffset(currentOffset + listingsWithImages.length);
+        } else {
+          setListings(listingsWithImages);
+          setOffset(listingsWithImages.length);
+        }
+
+        // Check if there are more items to load
+        setHasMore(listingsWithImages.length === ITEMS_PER_PAGE);
+
       } catch (connectionError) {
         console.error("Connection error:", connectionError);
         throw new Error("Could not connect to Appwrite. Please check your project ID and endpoint.");
@@ -135,12 +147,19 @@ export default function HomeScreen() {
     } finally {
       setIsLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchListings();
+    fetchListings(false);
+  };
+
+  const loadMoreListings = () => {
+    if (!loadingMore && hasMore) {
+      fetchListings(true);
+    }
   };
 
   const showError = () => {
@@ -224,11 +243,14 @@ export default function HomeScreen() {
             <Text style={styles.loadingText}>Loading listings...</Text>
           </View>
         ) : (
-          <ListingGrid 
-            listing={listings} 
+          <ListingGrid
+            listing={listings}
             isLoading={isLoading}
             refreshing={refreshing}
             onRefresh={onRefresh}
+            onLoadMore={loadMoreListings}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
           />
         )}
         

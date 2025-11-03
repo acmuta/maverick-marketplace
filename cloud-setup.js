@@ -97,7 +97,8 @@ async function createListingsCollection(databaseId) {
             databases.createStringAttribute(databaseId, collection.$id, 'userId', 36, true),
             databases.createDatetimeAttribute(databaseId, collection.$id, 'createdAt', true),
             databases.createDatetimeAttribute(databaseId, collection.$id, 'updatedAt', false),
-            databases.createStringAttribute(databaseId, collection.$id, 'status', 20, false, 'active')
+            databases.createStringAttribute(databaseId, collection.$id, 'status', 20, false, 'active'),
+            databases.createStringAttribute(databaseId, collection.$id, 'primaryImageFileId', 36, false)
         ];
         
         await Promise.all(attributes);

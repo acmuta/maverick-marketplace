@@ -181,6 +181,44 @@ export default function ListingForm() {
 
         try {
             const listingId = ID.unique();
+            let primaryImageFileId = null;
+
+            // Upload first image to get its fileId for primaryImageFileId
+            if (images.length > 0) {
+              try {
+                const firstImage = images[0];
+                const fileName = firstImage.uri.split('/').pop() || 'image.jpg';
+                const firstImageFileId = ID.unique();
+
+                const formData = new FormData();
+                formData.append('fileId', firstImageFileId);
+                formData.append('file', {
+                  uri: firstImage.uri,
+                  name: fileName,
+                  type: 'image/jpeg',
+                });
+
+                const endpoint = `${process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${IMAGES_BUCKET_ID}/files`;
+                const response = await fetch(endpoint, {
+                  method: 'POST',
+                  headers: {
+                    'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
+                  },
+                  body: formData,
+                });
+
+                if (response.ok) {
+                  const fileData = await response.json();
+                  primaryImageFileId = fileData.$id || firstImageFileId;
+                  console.log('Primary image uploaded:', primaryImageFileId);
+                } else {
+                  console.error(`First image upload failed: HTTP ${response.status}`);
+                }
+              } catch (error) {
+                console.error('Error uploading primary image:', error);
+              }
+            }
+
             const documentData = {
               title: title.trim(),
               description: description.trim(),
@@ -191,8 +229,9 @@ export default function ListingForm() {
               userId: currentUser.$id,
               createdAt: new Date().toISOString(),
               status: 'active',
+              ...(primaryImageFileId && { primaryImageFileId }), // Add primaryImageFileId if available
             };
-            
+
             console.log('Creating document with data:', JSON.stringify(documentData, null, 2));
             console.log('Using collection ID:', LISTINGS_COLLECTION_ID);
             console.log('Using database ID:', DATABASE_ID);
@@ -209,41 +248,52 @@ export default function ListingForm() {
             );
 
             if (images.length > 0) {
+                // Create image documents for all images
                 await Promise.all(images.map(async (image, index) => {
                   try {
-                    const fileName = image.uri.split('/').pop() || 'image.jpg';
-                    const fileId = ID.unique();
-                    
-                    const formData = new FormData();
-                    formData.append('fileId', fileId);
-                    formData.append('file', {
-                      uri: image.uri,
-                      name: fileName,
-                      type: 'image/jpeg',
-                    });
-                    
-                    const endpoint = `${process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${IMAGES_BUCKET_ID}/files`;
-                    const response = await fetch(endpoint, {
-                      method: 'POST',
-                      headers: {
-                        'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
-                      },
-                      body: formData,
-                    });
-                    
-                    if (!response.ok) {
-                      throw new Error(`HTTP error ${response.status}`);
+                    let fileId;
+
+                    // For first image, use the already uploaded primaryImageFileId
+                    if (index === 0 && primaryImageFileId) {
+                      fileId = primaryImageFileId;
+                    } else {
+                      // Upload remaining images
+                      const fileName = image.uri.split('/').pop() || 'image.jpg';
+                      fileId = ID.unique();
+
+                      const formData = new FormData();
+                      formData.append('fileId', fileId);
+                      formData.append('file', {
+                        uri: image.uri,
+                        name: fileName,
+                        type: 'image/jpeg',
+                      });
+
+                      const endpoint = `${process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${IMAGES_BUCKET_ID}/files`;
+                      const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                          'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
+                        },
+                        body: formData,
+                      });
+
+                      if (!response.ok) {
+                        throw new Error(`HTTP error ${response.status}`);
+                      }
+
+                      const fileData = await response.json();
+                      fileId = fileData.$id || fileId;
                     }
-                    
-                    const fileData = await response.json();
-                    
+
+                    // Create image document
                     await databases.createDocument(
                       DATABASE_ID,
                       IMAGES_COLLECTION_ID,
                       ID.unique(),
                       {
                         listingId,
-                        fileId: fileData.$id || fileId,
+                        fileId: fileId,
                         order: index,
                       }
                     );

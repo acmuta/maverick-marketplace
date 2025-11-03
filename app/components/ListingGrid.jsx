@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, FlatList, RefreshControl } fr
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 
-export default function ListingGrid({ listing, isLoading, refreshing, onRefresh }){
+export default function ListingGrid({ listing, isLoading, refreshing, onRefresh, onLoadMore, hasMore, loadingMore }){
     const router = useRouter();
   
     const renderListingItem = ({ item }) => (
@@ -47,6 +47,15 @@ export default function ListingGrid({ listing, isLoading, refreshing, onRefresh 
       );
     }
     
+    const renderFooter = () => {
+      if (!loadingMore) return null;
+      return (
+        <View style={styles.footerLoader}>
+          <Text style={styles.loadingMoreText}>Loading more...</Text>
+        </View>
+      );
+    };
+
     return (
       <FlatList
         data={listing}
@@ -55,13 +64,16 @@ export default function ListingGrid({ listing, isLoading, refreshing, onRefresh 
         numColumns={2}
         contentContainerStyle={styles.listContainer}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing || false} 
+          <RefreshControl
+            refreshing={refreshing || false}
             onRefresh={onRefresh}
-            colors={['#FF8A00']} 
+            colors={['#FF8A00']}
             tintColor="#FF8A00"
           />
         }
+        onEndReached={hasMore && !loadingMore ? onLoadMore : null}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
         style={styles.flatList}
       />
     );
@@ -141,6 +153,16 @@ const styles = StyleSheet.create({
       fontSize: 16,
       color: '#0F2C5C',
       textAlign: 'center',
+      fontWeight: '500',
+    },
+    footerLoader: {
+      paddingVertical: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    loadingMoreText: {
+      fontSize: 14,
+      color: '#FF8A00',
       fontWeight: '500',
     },
 });
