@@ -90,22 +90,19 @@ export default function ListingDetailScreen() {
 
   const fetchSellerData = async (userId) => {
     if (!userId) return null;
-    
+
     try {
-      const sellerResponse = await databases.listDocuments(
+      // Use getDocument with account ID directly
+      const sellerData = await databases.getDocument(
         DATABASE_ID,
         USERS_COLLECTION_ID,
-        [Query.equal('userId', userId)]
+        userId
       );
-
-      if (sellerResponse.documents.length > 0) {
-        const sellerData = sellerResponse.documents[0];
-        setSeller(sellerData);
-        return sellerData;
-      }
-      return null;
+      setSeller(sellerData);
+      return sellerData;
     } catch (error) {
       console.log('Could not fetch seller information:', error);
+      setSeller({ $id: userId, displayName: 'Unknown Seller' });
       return null;
     }
   };
@@ -209,27 +206,6 @@ export default function ListingDetailScreen() {
         sellerId: listing.userId
       }
     });
-
-    if (seller) {
-      const contactMessage = `Contact ${seller.displayName || 'the seller'} at:`;
-      const contactDetails = [];
-      
-      if (seller.contactEmail) {
-        contactDetails.push(`Email: ${seller.contactEmail}`);
-      }
-      
-      if (seller.phoneNumber) {
-        contactDetails.push(`Phone: ${seller.phoneNumber}`);
-      }
-      
-      if (contactDetails.length === 0) {
-        contactDetails.push('No contact information provided.');
-      }
-      
-      Alert.alert('Contact Information', `${contactMessage}\n\n${contactDetails.join('\n')}`);
-    } else {
-      Alert.alert('Contact Information', 'Seller information is not available');
-    }
   };
 
   const deleteListing = async () => {
@@ -289,9 +265,22 @@ export default function ListingDetailScreen() {
   const isOwner = currentUser && currentUser.$id === listing.userId;
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Image Gallery */}
-      <View style={styles.galleryContainer}>
+    <View style={styles.container}>
+      {/* Back Button Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Listing Details</Text>
+        <View style={styles.headerRight} />
+      </View>
+
+      <ScrollView style={styles.scrollContent}>
+        {/* Image Gallery */}
+        <View style={styles.galleryContainer}>
         <ScrollView 
           horizontal 
           pagingEnabled 
@@ -395,10 +384,18 @@ export default function ListingDetailScreen() {
         {/* Action Buttons */}
         {isOwner ? (
           <View style={styles.ownerButtons}>
-            <TouchableOpacity 
-              style={[styles.button, styles.deleteButton]} 
+            <TouchableOpacity
+              style={[styles.button, styles.editButton]}
+              onPress={() => router.push(`/listing/edit/${listing.$id}`)}
+            >
+              <Ionicons name="create-outline" size={18} color="white" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Edit Listing</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.deleteButton]}
               onPress={deleteListing}
             >
+              <Ionicons name="trash-outline" size={18} color="white" style={styles.buttonIcon} />
               <Text style={styles.buttonText}>Delete Listing</Text>
             </TouchableOpacity>
           </View>
@@ -423,6 +420,7 @@ export default function ListingDetailScreen() {
         )}
       </View>
     </ScrollView>
+    </View>
   );
 }
 
@@ -449,6 +447,38 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
     color: COLORS.error,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: 50,
+    backgroundColor: COLORS.mediumBlue,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.white,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerRight: {
+    width: 40,
+  },
+  scrollContent: {
+    flex: 1,
   },
   galleryContainer: {
     height: 300,
@@ -557,6 +587,10 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  editButton: {
+    backgroundColor: COLORS.lightBlue,
+    marginBottom: 12,
   },
   deleteButton: {
     backgroundColor: COLORS.error,

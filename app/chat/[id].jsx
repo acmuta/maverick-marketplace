@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TextInput, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
   ActivityIndicator,
   Alert,
   Keyboard,
@@ -15,15 +15,17 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ID, Query } from 'react-native-appwrite';
 import { Ionicons } from '@expo/vector-icons';
-import { 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
   client,
-  databases, 
-  account, 
-  DATABASE_ID, 
-  CHATS_COLLECTION_ID, 
-  MESSAGES_COLLECTION_ID, 
-  USERS_COLLECTION_ID 
+  databases,
+  DATABASE_ID,
+  CHATS_COLLECTION_ID,
+  MESSAGES_COLLECTION_ID,
+  USERS_COLLECTION_ID
 } from '../../appwrite';
+import { useAuth } from '../contexts/AuthContext';
+import { useChat } from '../contexts/ChatContext';
 
 // Define consistent theme colors
 const COLORS = {
@@ -45,33 +47,72 @@ const COLORS = {
 
 export default function ChatDetailScreen() {
   const { id: chatId } = useLocalSearchParams();
+  const { user: currentUser } = useAuth(); // Use cached user from AuthContext
+  const { getCachedMessages, refreshMessages, sendMessage: sendMessageContext } = useChat();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);
   const [chatInfo, setChatInfo] = useState(null);
   const [otherUser, setOtherUser] = useState(null);
   const flatListRef = useRef(null);
+  const subscriptionRef = useRef(null); // Guard against duplicate subscriptions
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
+  // Load chat info and messages on mount
   useEffect(() => {
-    checkSession();
-  }, []);
+    if (currentUser && chatId) {
+      loadChat();
+    } else if (!currentUser) {
+      setIsLoading(false);
+      router.push('/login');
+    }
+  }, [chatId, currentUser]);
 
+  // WebSocket subscription with duplicate prevention
   useEffect(() => {
-    if (!chatId || !currentUser) return;
-    
+    if (!chatId || !currentUser || subscriptionRef.current) return;
+
+    // Guard against duplicate subscriptions
+    subscriptionRef.current = true;
+
     const unsubscribe = client.subscribe(`databases.${DATABASE_ID}.collections.${MESSAGES_COLLECTION_ID}.documents`, response => {
       if (response.events.includes(`databases.${DATABASE_ID}.collections.${MESSAGES_COLLECTION_ID}.documents.*.create`)) {
         const newMsg = response.payload;
-        
+
         if (newMsg.chatId === chatId) {
-          setMessages(prevMessages => [...prevMessages, newMsg]);
-          
-          if (currentUser && newMsg.senderId !== currentUser.$id) {
-            markMessageAsRead(newMsg.$id);
+          // Don't add message from WebSocket if it was sent by current user
+          // (it's already in the array from optimistic update)
+          if (newMsg.senderId === currentUser.$id) {
+            // Just replace the temp message with the real one
+            setMessages(prevMessages => {
+              // Find and replace any temp message
+              const hasTempMessage = prevMessages.some(m => m.$id.startsWith('temp_'));
+              if (hasTempMessage) {
+                return prevMessages.map(m =>
+                  m.$id.startsWith('temp_') && m.content === newMsg.content
+                    ? newMsg
+                    : m
+                );
+              }
+              // If no temp message found, it might be from refresh, check for duplicate
+              const exists = prevMessages.some(m => m.$id === newMsg.$id);
+              if (exists) return prevMessages;
+              return [...prevMessages, newMsg];
+            });
+            return; // Don't process further for own messages
           }
-          
+
+          // For messages from other users, check for duplicates and add
+          setMessages(prevMessages => {
+            const exists = prevMessages.some(m => m.$id === newMsg.$id);
+            if (exists) return prevMessages;
+            return [...prevMessages, newMsg];
+          });
+
+          // Mark other user's messages as read
+          markMessageAsRead(newMsg.$id);
+
           if (flatListRef.current) {
             setTimeout(() => {
               flatListRef.current.scrollToEnd({ animated: true });
@@ -80,28 +121,50 @@ export default function ChatDetailScreen() {
         }
       }
     });
-    
+
     return () => {
+      subscriptionRef.current = false;
       unsubscribe();
     };
   }, [chatId, currentUser]);
 
-  const checkSession = async () => {
+  const loadChat = async () => {
+    if (!currentUser || !chatId) return;
+
     try {
-      const session = await account.getSession('current');
-      if (session) {
-        const user = await account.get();
-        setCurrentUser(user);
-        await fetchChatInfo(chatId, user.$id);
-        await fetchMessages(chatId);
-      } else {
-        setIsLoading(false);
-        router.push('/login');
+      // Load messages from cache FIRST for instant display (non-blocking)
+      const cachedMessages = await getCachedMessages(chatId);
+      if (cachedMessages.length > 0) {
+        setMessages(cachedMessages);
+        setIsLoading(false); // Show cached messages immediately
+      }
+
+      // Fetch chat info in parallel with message refresh
+      const [_, freshMessages] = await Promise.all([
+        fetchChatInfo(chatId, currentUser.$id),
+        refreshMessages(chatId)
+      ]);
+
+      setMessages(freshMessages);
+      setIsLoading(false); // Ensure loading is false even without cache
+
+      // Mark unread messages as read
+      const unreadMessages = freshMessages.filter(
+        msg => !msg.isRead && msg.senderId !== currentUser.$id
+      );
+      for (const msg of unreadMessages) {
+        markMessageAsRead(msg.$id);
+      }
+
+      // Scroll to bottom
+      if (flatListRef.current) {
+        setTimeout(() => {
+          flatListRef.current.scrollToEnd({ animated: false });
+        }, 200);
       }
     } catch (error) {
-      console.log('No active session found');
+      console.error('Error loading chat:', error);
       setIsLoading(false);
-      router.push('/login');
     }
   };
   
@@ -118,19 +181,21 @@ export default function ChatDetailScreen() {
       const otherUserId = chatResponse.buyerId === userId
         ? chatResponse.sellerId
         : chatResponse.buyerId;
-      
-      const userProfileResponse = await databases.listDocuments(
-        DATABASE_ID,
-        USERS_COLLECTION_ID,
-        [Query.equal('userId', otherUserId)]
-      );
-      
-      if (userProfileResponse.documents.length > 0) {
+
+      try {
+        // Use getDocument with account ID directly
+        const otherUserProfile = await databases.getDocument(
+          DATABASE_ID,
+          USERS_COLLECTION_ID,
+          otherUserId
+        );
+
         setOtherUser({
           userId: otherUserId,
-          ...userProfileResponse.documents[0]
+          ...otherUserProfile
         });
-      } else {
+      } catch (error) {
+        console.error('Error fetching other user profile:', error);
         setOtherUser({
           userId: otherUserId,
           displayName: 'Unknown User'
@@ -149,41 +214,7 @@ export default function ChatDetailScreen() {
     }
   };
 
-  const fetchMessages = async (chatId) => {
-    setIsLoading(true);
-    try {
-      const messagesResponse = await databases.listDocuments(
-        DATABASE_ID,
-        MESSAGES_COLLECTION_ID,
-        [
-          Query.equal('chatId', chatId),
-          Query.orderAsc('createdAt')
-        ]
-      );
-      
-      setMessages(messagesResponse.documents);
-      
-      if (currentUser) {
-        const unreadMessages = messagesResponse.documents.filter(
-          msg => !msg.isRead && msg.senderId !== currentUser.$id
-        );
-        
-        for (const msg of unreadMessages) {
-          markMessageAsRead(msg.$id);
-        }
-      }
-      
-      if (flatListRef.current && messagesResponse.documents.length > 0) {
-        setTimeout(() => {
-          flatListRef.current.scrollToEnd({ animated: false });
-        }, 200);
-      }
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Removed fetchMessages - now using getCachedMessages and refreshMessages from ChatContext
 
   const markMessageAsRead = async (messageId) => {
     try {
@@ -198,38 +229,47 @@ export default function ChatDetailScreen() {
     }
   };
 
+  // Send message with optimistic UI update
   const sendMessage = async () => {
     if (!newMessage.trim() || !currentUser) return;
-    
-    try {
-      const messageData = {
-        chatId: chatId,
-        senderId: currentUser.$id,
-        content: newMessage.trim(),
-        createdAt: new Date().toISOString(),
-        isRead: false
-      };
-      
-      setNewMessage('');
-      
-      await databases.createDocument(
-        DATABASE_ID,
-        MESSAGES_COLLECTION_ID,
-        ID.unique(),
-        messageData
-      );
-      
-      await databases.updateDocument(
-        DATABASE_ID,
-        CHATS_COLLECTION_ID,
-        chatId,
-        { updatedAt: new Date().toISOString() }
-      );
-      
-    } catch (error) {
-      console.error('Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message');
-    }
+
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Clear input immediately
+
+    // Use ChatContext sendMessage with optimistic update callbacks
+    await sendMessageContext(
+      chatId,
+      messageContent,
+      // Optimistic update callback
+      (optimisticMessage) => {
+        setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+
+        // Scroll to bottom
+        if (flatListRef.current) {
+          setTimeout(() => {
+            flatListRef.current.scrollToEnd({ animated: true });
+          }, 100);
+        }
+      },
+      // Success callback
+      (realMessage, tempId) => {
+        setMessages(prevMessages =>
+          prevMessages.map(m => m.$id === tempId ? realMessage : m)
+        );
+      },
+      // Error callback
+      (error, tempId) => {
+        console.error('Error sending message:', error);
+        Alert.alert('Error', 'Failed to send message');
+
+        // Mark message as failed
+        setMessages(prevMessages =>
+          prevMessages.map(m =>
+            m.$id === tempId ? { ...m, isSending: false, sendFailed: true } : m
+          )
+        );
+      }
+    );
   };
 
   const formatTime = (dateString) => {
@@ -265,10 +305,10 @@ export default function ChatDetailScreen() {
 
   const renderMessage = ({ item, index }) => {
     const isCurrentUser = currentUser && item.senderId === currentUser.$id;
-    
-    const showDateSeparator = index === 0 || 
+
+    const showDateSeparator = index === 0 ||
       formatDate(messages[index - 1].createdAt) !== formatDate(item.createdAt);
-    
+
     return (
       <View>
         {showDateSeparator && renderDateSeparator(item.createdAt)}
@@ -278,13 +318,22 @@ export default function ChatDetailScreen() {
         ]}>
           <View style={[
             styles.messageBubble,
-            isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
+            isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
+            item.sendFailed && styles.failedMessageBubble
           ]}>
             <Text style={[
               styles.messageText,
               isCurrentUser ? styles.currentUserText : styles.otherUserText
             ]}>{item.content}</Text>
-            <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
+            <View style={styles.messageFooter}>
+              <Text style={styles.messageTime}>{formatTime(item.createdAt)}</Text>
+              {isCurrentUser && item.isSending && (
+                <ActivityIndicator size="small" color="#fff" style={styles.sendingIndicator} />
+              )}
+              {isCurrentUser && item.sendFailed && (
+                <Ionicons name="alert-circle" size={12} color="#FF5252" style={styles.failedIcon} />
+              )}
+            </View>
           </View>
         </View>
       </View>
@@ -300,19 +349,31 @@ export default function ChatDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
       {/* Chat Header */}
       {chatInfo && (
-        <View style={styles.chatHeader}>
-          <Text style={styles.listingTitle} numberOfLines={1}>
-            {chatInfo.listingTitle}
-          </Text>
-          <Text style={styles.chatWith}>
-            Chat with {otherUser?.displayName || 'User'}
-          </Text>
+        <View style={[styles.chatHeader, { paddingTop: insets.top + 4 }]}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+          </TouchableOpacity>
+          <View style={styles.chatHeaderContent}>
+            <Text style={styles.listingTitle} numberOfLines={1}>
+              {chatInfo.listingTitle}
+            </Text>
+            <Text style={styles.otherUserName}>
+              {otherUser?.displayName || 'User'}
+            </Text>
+          </View>
         </View>
       )}
-      
+
       {/* Messages List */}
       <FlatList
         ref={flatListRef}
@@ -327,36 +388,33 @@ export default function ChatDetailScreen() {
           }
         }}
         keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
       />
-      
-      {/* Keyboard Avoiding Input */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 85 : 0}
-      >
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={newMessage}
-            onChangeText={setNewMessage}
-            placeholder="Type a message..."
-            placeholderTextColor={COLORS.mediumGray}
-            multiline
+
+      {/* Message Input */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          value={newMessage}
+          onChangeText={setNewMessage}
+          placeholder="Type a message..."
+          placeholderTextColor={COLORS.mediumGray}
+          multiline
+          maxLength={1000}
+        />
+        <TouchableOpacity
+          style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]}
+          onPress={sendMessage}
+          disabled={!newMessage.trim()}
+        >
+          <Ionicons
+            name="send"
+            size={20}
+            color={!newMessage.trim() ? COLORS.mediumGray : COLORS.white}
           />
-          <TouchableOpacity 
-            style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]} 
-            onPress={sendMessage}
-            disabled={!newMessage.trim()}
-          >
-            <Ionicons 
-              name="send" 
-              size={20} 
-              color={!newMessage.trim() ? COLORS.mediumGray : COLORS.white} 
-            />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </View>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -372,19 +430,35 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.darkBlue,
   },
   chatHeader: {
-    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingBottom: 8,
     backgroundColor: COLORS.mediumBlue,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.1)',
   },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  chatHeaderContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   listingTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontWeight: '600',
+    marginBottom: 1,
     color: COLORS.white,
   },
-  chatWith: {
-    fontSize: 14,
+  otherUserName: {
+    fontSize: 12,
     color: COLORS.textSecondary,
   },
   messagesContainer: {
@@ -428,14 +502,29 @@ const styles = StyleSheet.create({
   otherUserText: {
     color: COLORS.textPrimary,
   },
-  messageTime: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-end',
     marginTop: 4,
     position: 'absolute',
     bottom: 4,
     right: 8,
+  },
+  messageTime: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  sendingIndicator: {
+    marginLeft: 4,
+  },
+  failedIcon: {
+    marginLeft: 4,
+  },
+  failedMessageBubble: {
+    opacity: 0.6,
+    borderWidth: 1,
+    borderColor: '#FF5252',
   },
   dateSeparator: {
     alignItems: 'center',

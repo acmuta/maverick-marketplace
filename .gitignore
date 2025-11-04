@@ -7,3 +7,8 @@ expo-env.d.ts
 /appwrite-setup/node_modules
 .DS_Store
 .env.cloud
+CLAUDE.md
+AGENTS.md
+app/.DS_Store
+OPTIMIZATION_ROADMAP.md
+add-primary-image-field.js

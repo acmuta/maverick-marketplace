@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { ID } from 'react-native-appwrite';
 import { account, databases, DATABASE_ID, USERS_COLLECTION_ID } from '../appwrite';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from './contexts/AuthContext';
 
 // Define theme colors to match tab layout
 const COLORS = {
@@ -35,7 +36,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const { user, login: authLogin, isLoading: isCheckingSession } = useAuth();
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     name?: string;
@@ -44,30 +45,25 @@ export default function LoginScreen() {
   }>({});
   const router = useRouter();
 
+  // Redirect to home if already logged in
   useEffect(() => {
-    checkSession();
-  }, []);
-
-  const checkSession = async () => {
-    setIsCheckingSession(true);
-    try {
-      const session = await account.getSession('current');
-      if (session) {
-        router.replace('/(tabs)');
-      }
-    } catch (error) {
-      console.log('No active session');
-    } finally {
-      setIsCheckingSession(false);
+    if (user) {
+      router.replace('/(tabs)');
     }
-  };
+  }, [user]);
 
   const validateForm = () => {
     let errors: { name?: string; email?: string; password?: string } = {};
 
     if (!email.trim()) errors.email = "Email is required.";
     if (!password.trim()) errors.password = "Password is required.";
-    if (mode === 'register' && !name.trim()) errors.name = "Name is required.";
+    if (mode === 'register') {
+      if (!name.trim()) {
+        errors.name = "Name is required.";
+      } else if (name.trim().length < 2) {
+        errors.name = "Name must be at least 2 characters.";
+      }
+    }
 
     setFieldErrors(errors);
 
@@ -76,53 +72,59 @@ export default function LoginScreen() {
 
   const handleAuth = async () => {
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       console.log("Auth attempt:", { email, mode, endpoint: process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT });
 
       if (mode === 'login') {
-        // Log in the user
-        await account.createEmailPasswordSession(email, password);
+        // Log in the user using AuthContext
+        await authLogin(email, password);
         console.log("Session created for login");
       } else {
         // Register a new user
         const user = await account.create(ID.unique(), email, password, name);
-        
+
         console.log("User created:", user);
-        
-        await account.createEmailPasswordSession(email, password);
+
+        // Create session using AuthContext
+        await authLogin(email, password);
         console.log("Session created for new user");
 
-        try{
+        try {
+            // Create profile document using account ID as document ID
             await databases.createDocument(
                 DATABASE_ID,
                 USERS_COLLECTION_ID,
-                ID.unique(),
+                user.$id,  // Use account ID as document ID
                 {
-                    userId: user.$id,
-                    displayName: name,
+                    displayName: name.trim(),
                     bio: '',
-                    contactEmail: '',
+                    avatarUrl: '',
+                    contactEmail: email,
                     phoneNumber: '',
                     createdAt: new Date().toISOString(),
                 }
             );
             console.log("Default profile created for user");
-        } catch (profileError){
+        } catch (profileError) {
             console.error("Error creating default profile:", profileError);
+            Alert.alert(
+                'Warning',
+                'Account created but profile setup incomplete. Please update your profile in settings.'
+            );
         }
       }
-      
+
       // Navigate to the main app
       router.replace('/(tabs)');
     } catch (error) {
       console.error('Authentication error:', error);
       Alert.alert(
-        'Authentication Error', 
-        mode === 'login' 
-          ? 'Failed to log in. Please check your credentials.' 
+        'Authentication Error',
+        mode === 'login'
+          ? 'Failed to log in. Please check your credentials.'
           : 'Failed to register. This email might already be in use.'
       );
     } finally {

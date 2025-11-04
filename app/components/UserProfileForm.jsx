@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { StyleSheet, View, TextInput, Text, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { account, databases, DATABASE_ID, USERS_COLLECTION_ID } from '../../appwrite';
 
 // Define consistent theme colors - matching the profile page
 const COLORS = {
@@ -33,46 +34,35 @@ export default function UserProfileForm({ existingProfile, onProfileSaved }) {
       return;
     }
 
+    if (displayName.trim().length < 2) {
+      Alert.alert('Error', 'Display name must be at least 2 characters');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Simulate API call - In a real app, you would use your Appwrite config
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      /*
-      // This would be your actual implementation with Appwrite
       const currentUser = await account.get();
 
       const profileData = {
-        userId: currentUser.$id,
-        displayName,
-        bio,
-        contactEmail,
-        phoneNumber,
-        createdAt: new Date().toISOString(),
+        displayName: displayName.trim(),
+        bio: bio.trim(),
+        contactEmail: contactEmail.trim(),
+        phoneNumber: phoneNumber.trim(),
       };
 
-      if (existingProfile) {
-        await databases.updateDocument(
-          DATABASE_ID,
-          USERS_COLLECTION_ID,
-          existingProfile.$id,
-          profileData
-        );
-      } else {
-        await databases.createDocument(
-          DATABASE_ID,
-          USERS_COLLECTION_ID,
-          ID.unique(), // You'd need to import ID from "react-native-appwrite"
-          profileData     
-        );
-      }
-      */
+      // Update the profile document using account ID as document ID
+      await databases.updateDocument(
+        DATABASE_ID,
+        USERS_COLLECTION_ID,
+        currentUser.$id,
+        profileData
+      );
 
       Alert.alert('Success', 'Profile saved successfully');
       if (onProfileSaved) onProfileSaved();
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert('Error', 'Failed to save profile. Please try again.');  
+      Alert.alert('Error', error.message || 'Failed to save profile. Please try again.');
     } finally {
       setIsLoading(false);
     }

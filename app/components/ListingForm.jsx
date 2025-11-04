@@ -2,17 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, TextInput, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Modal, Pressable, Platform, StatusBar } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { ID, Role, Permission } from 'react-native-appwrite';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
+import { ID, Role, Permission, Query } from 'react-native-appwrite';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import {
     account,
-    databases, 
-    storage, 
-    DATABASE_ID, 
+    databases,
+    storage,
+    getImageUrl,
+    DATABASE_ID,
     LISTINGS_COLLECTION_ID,
     IMAGES_COLLECTION_ID,
-    IMAGES_BUCKET_ID 
+    IMAGES_BUCKET_ID
 } from '../../appwrite';
+import { useAuth } from '../contexts/AuthContext';
 
 const COLORS = {
   darkBlue: '#0A1929',
@@ -32,22 +35,23 @@ const COLORS = {
   textSecondary: '#B0BEC5',
 };
 
-export default function ListingForm() {
+export default function ListingForm({ existingListing = null, isEditMode = false }) {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [price, setPrice] = useState('');
-    const [category, setCategory] = useState('');
-    const [condition, setCondition] = useState('');
-    const [location, setLocation] = useState('');
+    const [title, setTitle] = useState(existingListing?.title || '');
+    const [description, setDescription] = useState(existingListing?.description || '');
+    const [price, setPrice] = useState(existingListing?.price?.toString() || '');
+    const [category, setCategory] = useState(existingListing?.category || '');
+    const [condition, setCondition] = useState(existingListing?.condition || '');
+    const [location, setLocation] = useState(existingListing?.location || '');
     const [images, setImages] = useState([]);
+    const [existingImages, setExistingImages] = useState([]);
+    const [removedImageIds, setRemovedImageIds] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [currentUser, setCurrentUser] = useState(null);
     const [showConditionDropdown, setShowConditionDropdown] = useState(false);
+    const { user: currentUser } = useAuth();
 
     const categories = [
         'Electronics',
@@ -68,23 +72,39 @@ export default function ListingForm() {
       'Poor'
     ];
 
+    // Load existing images when in edit mode
     useEffect(() => {
-        const checkSession = async () => {
-            try {
-                const session = await account.getSession('current');
-                if (session) {
-                    const user = await account.get();
-                    setCurrentUser(user);
-                }
-            } catch (error) {
-                console.log('No active session found');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        
-        checkSession();
-    }, []);
+        if (isEditMode && existingListing) {
+            loadExistingImages();
+        }
+    }, [isEditMode, existingListing]);
+
+    const loadExistingImages = async () => {
+        try {
+            const response = await databases.listDocuments(
+                DATABASE_ID,
+                IMAGES_COLLECTION_ID,
+                [
+                    Query.equal('listingId', existingListing.$id),
+                    Query.orderAsc('order')
+                ]
+            );
+
+            // Map to include fileId and mark as existing
+            const existingImgs = response.documents.map(doc => ({
+                fileId: doc.fileId,
+                documentId: doc.$id,
+                order: doc.order,
+                isExisting: true,
+            }));
+
+            setExistingImages(existingImgs);
+        } catch (error) {
+            console.error('Error loading existing images:', error);
+        }
+    };
+
+    // User is now available instantly from AuthContext - no loading needed!
 
     const handleSelectImage = () => {
       Alert.alert(
@@ -156,20 +176,52 @@ export default function ListingForm() {
       }
     };
 
-    const removeImage = (index) => {
-      const newImages = [...images];
-      newImages.splice(index, 1);
-      setImages(newImages);
+    const removeImage = (index, isExisting) => {
+      if (isExisting) {
+        // Remove from existing images and track for deletion
+        const imageToRemove = existingImages[index];
+        setRemovedImageIds(prev => [...prev, imageToRemove.documentId]);
+        const newExistingImages = [...existingImages];
+        newExistingImages.splice(index, 1);
+        setExistingImages(newExistingImages);
+        // Clear photo error if we still have images
+        if (newExistingImages.length + images.length > 0) {
+          setFieldErrors(prev => ({ ...prev, images: null }));
+        }
+      } else {
+        // Remove from new images
+        const adjustedIndex = index - existingImages.length;
+        const newImages = [...images];
+        newImages.splice(adjustedIndex, 1);
+        setImages(newImages);
+        // Clear photo error if we still have images
+        if (existingImages.length + newImages.length > 0) {
+          setFieldErrors(prev => ({ ...prev, images: null }));
+        }
+      }
     };
 
     const validateForm = () => {
       let errors = {};
-  
+
       if (!title.trim()) errors.title = "Title is required.";
       if (!description.trim()) errors.description = "Description cannot be empty.";
-      if (!price || isNaN(parseFloat(price)) || parseFloat(price) < 0) errors.price = "Enter a valid price.";
+
+      const parsedPrice = parseFloat(price);
+      if (!price || isNaN(parsedPrice) || parsedPrice < 0) {
+        errors.price = "Enter a valid price.";
+      } else if (parsedPrice > 10000) {
+        errors.price = "Price cannot exceed $10,000.";
+      }
+
       if (!category.trim()) errors.category = "Category is required.";
-  
+
+      // Check total images (existing + new)
+      const totalImages = existingImages.length + images.length;
+      if (totalImages === 0) {
+        errors.images = "At least one photo is required.";
+      }
+
       setFieldErrors(errors);
       return Object.keys(errors).length === 0;
     };
@@ -180,105 +232,280 @@ export default function ListingForm() {
         setIsSubmitting(true);
 
         try {
-            const listingId = ID.unique();
-            const documentData = {
-              title: title.trim(),
-              description: description.trim(),
-              price: parseFloat(price),
-              category: category.trim(),
-              condition: condition.trim(),
-              location: location.trim(),
-              userId: currentUser.$id,
-              createdAt: new Date().toISOString(),
-              status: 'active',
-            };
-            
-            console.log('Creating document with data:', JSON.stringify(documentData, null, 2));
-            console.log('Using collection ID:', LISTINGS_COLLECTION_ID);
-            console.log('Using database ID:', DATABASE_ID);
-            await databases.createDocument(
-                DATABASE_ID,
-                LISTINGS_COLLECTION_ID,
-                listingId,
-                documentData,
-                [
-                  Permission.read(Role.any()),
-                  Permission.update(Role.user(currentUser.$id)),
-                  Permission.delete(Role.user(currentUser.$id))
-                ]
-            );
-
-            if (images.length > 0) {
-                await Promise.all(images.map(async (image, index) => {
-                  try {
-                    const fileName = image.uri.split('/').pop() || 'image.jpg';
-                    const fileId = ID.unique();
-                    
-                    const formData = new FormData();
-                    formData.append('fileId', fileId);
-                    formData.append('file', {
-                      uri: image.uri,
-                      name: fileName,
-                      type: 'image/jpeg',
-                    });
-                    
-                    const endpoint = `${process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${IMAGES_BUCKET_ID}/files`;
-                    const response = await fetch(endpoint, {
-                      method: 'POST',
-                      headers: {
-                        'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
-                      },
-                      body: formData,
-                    });
-                    
-                    if (!response.ok) {
-                      throw new Error(`HTTP error ${response.status}`);
-                    }
-                    
-                    const fileData = await response.json();
-                    
-                    await databases.createDocument(
-                      DATABASE_ID,
-                      IMAGES_COLLECTION_ID,
-                      ID.unique(),
-                      {
-                        listingId,
-                        fileId: fileData.$id || fileId,
-                        order: index,
-                      }
-                    );
-                  } catch (error) {
-                    console.error(`Upload failed for image ${index}:`, error);
-                  }
-                }));
+            if (isEditMode) {
+                // EDIT MODE
+                await handleUpdateListing();
+            } else {
+                // CREATE MODE
+                await handleCreateListing();
             }
-
-            Alert.alert('Success', 'Your listing has been created!', [
-              {
-                text: 'OK',
-                onPress: () => {
-                  // Reset form
-                  setTitle('');
-                  setDescription('');
-                  setPrice('');
-                  setCategory('');
-                  setCondition('');
-                  setLocation('');
-                  setImages([]);
-                  setFieldErrors({});
-                  
-                  // Navigate back to listings
-                  router.replace('/(tabs)');
-                }
-              }
-            ]);
-            
         } catch (error) {
-            console.error('Error creating listing:', error);
-            Alert.alert('Error', 'Failed to create listing. Please try again.');
+            console.error(isEditMode ? 'Error updating listing:' : 'Error creating listing:', error);
+            Alert.alert('Error', isEditMode ? 'Failed to update listing. Please try again.' : 'Failed to create listing. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleCreateListing = async () => {
+        const listingId = ID.unique();
+        let primaryImageFileId = null;
+
+        // Upload first image to get its fileId for primaryImageFileId
+        if (images.length > 0) {
+          try {
+            const firstImage = images[0];
+            const fileName = firstImage.uri.split('/').pop() || 'image.jpg';
+            const firstImageFileId = ID.unique();
+
+            const formData = new FormData();
+            formData.append('fileId', firstImageFileId);
+            formData.append('file', {
+              uri: firstImage.uri,
+              name: fileName,
+              type: 'image/jpeg',
+            });
+
+            const endpoint = `${process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${IMAGES_BUCKET_ID}/files`;
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
+              },
+              body: formData,
+            });
+
+            if (response.ok) {
+              const fileData = await response.json();
+              primaryImageFileId = fileData.$id || firstImageFileId;
+              console.log('Primary image uploaded:', primaryImageFileId);
+            } else {
+              console.error(`First image upload failed: HTTP ${response.status}`);
+            }
+          } catch (error) {
+            console.error('Error uploading primary image:', error);
+          }
+        }
+
+        const documentData = {
+          title: title.trim(),
+          description: description.trim(),
+          price: parseFloat(price),
+          category: category.trim(),
+          condition: condition.trim(),
+          location: location.trim(),
+          userId: currentUser.$id,
+          createdAt: new Date().toISOString(),
+          status: 'active',
+          ...(primaryImageFileId && { primaryImageFileId }),
+        };
+
+        console.log('Creating document with data:', JSON.stringify(documentData, null, 2));
+        await databases.createDocument(
+            DATABASE_ID,
+            LISTINGS_COLLECTION_ID,
+            listingId,
+            documentData,
+            [
+              Permission.read(Role.any()),
+              Permission.update(Role.user(currentUser.$id)),
+              Permission.delete(Role.user(currentUser.$id))
+            ]
+        );
+
+        if (images.length > 0) {
+            // Create image documents for all images
+            await Promise.all(images.map(async (image, index) => {
+              try {
+                let fileId;
+
+                // For first image, use the already uploaded primaryImageFileId
+                if (index === 0 && primaryImageFileId) {
+                  fileId = primaryImageFileId;
+                } else {
+                  // Upload remaining images
+                  const fileName = image.uri.split('/').pop() || 'image.jpg';
+                  fileId = ID.unique();
+
+                  const formData = new FormData();
+                  formData.append('fileId', fileId);
+                  formData.append('file', {
+                    uri: image.uri,
+                    name: fileName,
+                    type: 'image/jpeg',
+                  });
+
+                  const endpoint = `${process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${IMAGES_BUCKET_ID}/files`;
+                  const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                      'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
+                    },
+                    body: formData,
+                  });
+
+                  if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}`);
+                  }
+
+                  const fileData = await response.json();
+                  fileId = fileData.$id || fileId;
+                }
+
+                // Create image document
+                await databases.createDocument(
+                  DATABASE_ID,
+                  IMAGES_COLLECTION_ID,
+                  ID.unique(),
+                  {
+                    listingId,
+                    fileId: fileId,
+                    order: index,
+                  }
+                );
+              } catch (error) {
+                console.error(`Upload failed for image ${index}:`, error);
+              }
+            }));
+        }
+
+        Alert.alert('Success', 'Your listing has been created!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Reset form
+              setTitle('');
+              setDescription('');
+              setPrice('');
+              setCategory('');
+              setCondition('');
+              setLocation('');
+              setImages([]);
+              setFieldErrors({});
+
+              // Navigate back to listings
+              router.replace('/(tabs)');
+            }
+          }
+        ]);
+    };
+
+    const handleUpdateListing = async () => {
+        // Delete removed images
+        if (removedImageIds.length > 0) {
+            await Promise.all(removedImageIds.map(async (docId) => {
+                try {
+                    // Get the image document to get fileId
+                    const imageDoc = await databases.getDocument(
+                        DATABASE_ID,
+                        IMAGES_COLLECTION_ID,
+                        docId
+                    );
+
+                    // Delete from storage
+                    try {
+                        await storage.deleteFile(IMAGES_BUCKET_ID, imageDoc.fileId);
+                    } catch (storageError) {
+                        console.error('Error deleting file from storage:', storageError);
+                    }
+
+                    // Delete image document
+                    await databases.deleteDocument(
+                        DATABASE_ID,
+                        IMAGES_COLLECTION_ID,
+                        docId
+                    );
+                } catch (error) {
+                    console.error('Error removing image:', error);
+                }
+            }));
+        }
+
+        // Upload new images
+        const newImageFileIds = [];
+        if (images.length > 0) {
+            for (let i = 0; i < images.length; i++) {
+                try {
+                    const image = images[i];
+                    const fileName = image.uri.split('/').pop() || 'image.jpg';
+                    const fileId = ID.unique();
+
+                    const formData = new FormData();
+                    formData.append('fileId', fileId);
+                    formData.append('file', {
+                        uri: image.uri,
+                        name: fileName,
+                        type: 'image/jpeg',
+                    });
+
+                    const endpoint = `${process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${IMAGES_BUCKET_ID}/files`;
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
+                        },
+                        body: formData,
+                    });
+
+                    if (response.ok) {
+                        const fileData = await response.json();
+                        const uploadedFileId = fileData.$id || fileId;
+                        newImageFileIds.push(uploadedFileId);
+
+                        // Create image document
+                        await databases.createDocument(
+                            DATABASE_ID,
+                            IMAGES_COLLECTION_ID,
+                            ID.unique(),
+                            {
+                                listingId: existingListing.$id,
+                                fileId: uploadedFileId,
+                                order: existingImages.length + i,
+                            }
+                        );
+                    }
+                } catch (error) {
+                    console.error(`Error uploading new image ${i}:`, error);
+                }
+            }
+        }
+
+        // Determine primary image (first existing or first new)
+        let primaryImageFileId;
+        if (existingImages.length > 0) {
+            primaryImageFileId = existingImages[0].fileId;
+        } else if (newImageFileIds.length > 0) {
+            primaryImageFileId = newImageFileIds[0];
+        }
+
+        // Update listing document
+        const updateData = {
+            title: title.trim(),
+            description: description.trim(),
+            price: parseFloat(price),
+            category: category.trim(),
+            condition: condition.trim(),
+            location: location.trim(),
+            updatedAt: new Date().toISOString(),
+            ...(primaryImageFileId && { primaryImageFileId }),
+        };
+
+        await databases.updateDocument(
+            DATABASE_ID,
+            LISTINGS_COLLECTION_ID,
+            existingListing.$id,
+            updateData
+        );
+
+        Alert.alert('Success', 'Your listing has been updated!', [
+            {
+                text: 'OK',
+                onPress: () => {
+                    // Navigate back to listing detail
+                    router.replace(`/listing/${existingListing.$id}`);
+                }
+            }
+        ]);
     };
 
     const selectCategory = (selectedCategory) => {
@@ -291,16 +518,6 @@ export default function ListingForm() {
       setCondition(selectedCondition);
       setShowConditionDropdown(false);
     };
-
-    if (isLoading) {
-        return (
-            <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
-                <StatusBar barStyle="light-content" backgroundColor={COLORS.darkBlue} />
-                <ActivityIndicator size="large" color={COLORS.brightOrange} />
-                <Text style={styles.loadingText}>Loading...</Text>
-            </View>
-        );
-    }
 
     if (!currentUser) {
         return (
@@ -315,34 +532,65 @@ export default function ListingForm() {
     }
 
     return (
-      <ScrollView 
+      <ScrollView
         style={styles.container}
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 10 }]}
         keyboardShouldPersistTaps="handled"
       >
         <StatusBar barStyle="light-content" backgroundColor={COLORS.darkBlue} />
-        <Text style={styles.title}>Create New Listing</Text>
-        
+
+        {/* Title with Back Button */}
+        <View style={styles.titleContainer}>
+          {isEditMode && (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={28} color={COLORS.brightOrange} />
+            </TouchableOpacity>
+          )}
+          <Text style={[styles.title, isEditMode && styles.titleWithBack]}>
+            {isEditMode ? 'Edit Listing' : 'Create New Listing'}
+          </Text>
+        </View>
+
         {/* Images Section */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Images</Text>
-          <Text style={styles.sectionSubtitle}>First image will be the cover photo</Text>
-          
+        <View style={[styles.sectionContainer, fieldErrors.images && styles.errorInput]}>
+          <Text style={styles.sectionTitle}>Images <Text style={styles.required}>*</Text></Text>
+          <Text style={styles.sectionSubtitle}>First image will be the cover photo (minimum 1 photo required)</Text>
+
           <View style={styles.imagesRow}>
-            {images.map((img, index) => (
-              <View key={index} style={styles.imageWrapper}>
-                <Image source={{ uri: img.uri }} style={styles.imagePreview} />
-                <TouchableOpacity 
-                  style={styles.removeButton} 
-                  onPress={() => removeImage(index)}
+            {/* Display existing images first */}
+            {existingImages.map((img, index) => (
+              <View key={`existing-${index}`} style={styles.imageWrapper}>
+                <Image
+                  source={{ uri: getImageUrl(IMAGES_BUCKET_ID, img.fileId, 400, 400) }}
+                  style={styles.imagePreview}
+                />
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeImage(index, true)}
                 >
                   <Text style={styles.removeButtonText}>×</Text>
                 </TouchableOpacity>
               </View>
             ))}
-            
-            <TouchableOpacity 
-              style={styles.addImageButton} 
+
+            {/* Display new images */}
+            {images.map((img, index) => (
+              <View key={`new-${index}`} style={styles.imageWrapper}>
+                <Image source={{ uri: img.uri }} style={styles.imagePreview} />
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeImage(existingImages.length + index, false)}
+                >
+                  <Text style={styles.removeButtonText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={styles.addImageButton}
               onPress={handleSelectImage}
             >
               <View style={styles.addImageContent}>
@@ -351,6 +599,7 @@ export default function ListingForm() {
               </View>
             </TouchableOpacity>
           </View>
+          {fieldErrors.images && <Text style={styles.errorText}>{fieldErrors.images}</Text>}
         </View>
         
         {/* Title Field */}
@@ -385,13 +634,15 @@ export default function ListingForm() {
                 setPrice(text);
                 const parsedPrice = parseFloat(text);
                 let errorMessage = null;
-    
+
                 if (text.trim() === "") {
                   errorMessage = "Enter a valid price.";
                 } else if (isNaN(parsedPrice)) {
                   errorMessage = "Price must be a number.";
                 } else if (parsedPrice < 0) {
                   errorMessage = "Price cannot be negative.";
+                } else if (parsedPrice > 10000) {
+                  errorMessage = "Price cannot exceed $10,000.";
                 }
                 setFieldErrors(prev => ({ ...prev, price: errorMessage }));
               }}
@@ -481,15 +732,15 @@ export default function ListingForm() {
         </View>
         
         {/* Submit Button */}
-        <TouchableOpacity 
-          style={[styles.button, isSubmitting && styles.buttonDisabled]} 
+        <TouchableOpacity
+          style={[styles.button, isSubmitting && styles.buttonDisabled]}
           onPress={submitListing}
           disabled={isSubmitting}
         >
           {isSubmitting ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.buttonText}>Post Listing</Text>
+            <Text style={styles.buttonText}>{isEditMode ? 'Update Listing' : 'Post Listing'}</Text>
           )}
         </TouchableOpacity>
         
@@ -615,12 +866,28 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    position: 'relative',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 0,
+    padding: 8,
+    zIndex: 1,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
     textAlign: 'center',
     color: COLORS.brightOrange,
+  },
+  titleWithBack: {
+    flex: 1,
+    marginLeft: 40,
   },
   sectionContainer: {
     marginBottom: 20,

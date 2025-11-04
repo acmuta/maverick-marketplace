@@ -78,15 +78,18 @@ export default function NewChatScreen() {
       setListingInfo(listing);
       
       const sellerIdToUse = sellerId || listing.userId;
-      
-      const sellerProfileResponse = await databases.listDocuments(
-        DATABASE_ID,
-        USERS_COLLECTION_ID,
-        [Query.equal('userId', sellerIdToUse)]
-      );
-      
-      if (sellerProfileResponse.documents.length > 0) {
-        setSellerInfo(sellerProfileResponse.documents[0]);
+
+      try {
+        // Use getDocument with account ID directly
+        const sellerProfile = await databases.getDocument(
+          DATABASE_ID,
+          USERS_COLLECTION_ID,
+          sellerIdToUse
+        );
+        setSellerInfo(sellerProfile);
+      } catch (error) {
+        console.error('Error fetching seller profile:', error);
+        setSellerInfo({ displayName: 'Unknown Seller' });
       }
       
     } catch (error) {
@@ -183,25 +186,32 @@ export default function NewChatScreen() {
           >
             <View style={styles.container}>
               <View style={styles.header}>
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={() => router.back()}
+                >
+                  <Ionicons name="arrow-back" size={24} color="#2196F3" />
+                </TouchableOpacity>
                 <Text style={styles.title}>New Chat</Text>
-                
-                {listingInfo && (
-                  <View style={styles.listingInfo}>
-                    <Text style={styles.listingTitle}>
-                      About: <Text style={styles.listingTitleText}>{listingInfo.title}</Text>
-                    </Text>
-                    <Text style={styles.price}>
-                      Price: <Text style={styles.priceText}>${listingInfo.price?.toFixed(2)}</Text>
-                    </Text>
-                    {sellerInfo && (
-                      <Text style={styles.seller}>
-                        Seller: <Text style={styles.sellerName}>{sellerInfo.displayName}</Text>
-                      </Text>
-                    )}
-                  </View>
-                )}
+                <View style={styles.headerRight} />
               </View>
-              
+
+              {listingInfo && (
+                <View style={styles.listingInfo}>
+                  <Text style={styles.listingTitle}>
+                    About: <Text style={styles.listingTitleText}>{listingInfo.title}</Text>
+                  </Text>
+                  <Text style={styles.price}>
+                    Price: <Text style={styles.priceText}>${listingInfo.price?.toFixed(2)}</Text>
+                  </Text>
+                  {sellerInfo && (
+                    <Text style={styles.seller}>
+                      Seller: <Text style={styles.sellerName}>{sellerInfo.displayName}</Text>
+                    </Text>
+                  )}
+                </View>
+              )}
+
               <View style={styles.messageContainer}>
                 <Text style={styles.messageLabel}>Your message:</Text>
                 <TextInput
@@ -259,12 +269,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 24,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerRight: {
+    width: 40,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 16,
+    flex: 1,
+    textAlign: 'center',
   },
   listingInfo: {
     backgroundColor: '#f5f5f5',
