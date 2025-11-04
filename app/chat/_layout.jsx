@@ -36,10 +36,9 @@ export default function ChatLayout() {
       />
       <Stack.Screen
         name="[id]"
-        options={({ route }) => ({
-          title: route.params?.title || 'Chat',
-          headerShown: true,
-        })}
+        options={{
+          headerShown: false,
+        }}
       />
     </Stack>
   );

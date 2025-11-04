@@ -8,6 +8,7 @@ import ListingGrid from '../components/ListingGrid';
 import SearchBar from '../components/SearchBar'; // Import the new SearchBar component
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../contexts/AuthContext';
 
 // Define consistent theme colors
 const COLORS = {
@@ -39,7 +40,7 @@ export default function HomeScreen() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [loggedInUser, setLoggedInUser] = useState<Models.User<Models.Preferences> | null>(null);
+  const { user: loggedInUser } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -47,33 +48,26 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const ITEMS_PER_PAGE = 25;
-
-  // Check if user is logged in
-  useEffect(() => {
-    checkSession();
-  }, []);
+  const fetchingRef = React.useRef(false);
 
   useEffect(() => {
     fetchListings();
+
+    // Cleanup function to reset fetch guard on unmount
+    return () => {
+      fetchingRef.current = false;
+    };
   }, []);
 
-  const checkSession = async () => {
-    try {
-      try {
-        const session = await account.getSession('current');
-        if (session) {
-          const user = await account.get();
-          setLoggedInUser(user);
-        }
-      } catch (error) {
-        console.log('No active session found');
-      }
-    } catch (error) {
-      console.error('Session error:', error);
-    }
-  };
-
   const fetchListings = async (loadMore: boolean = false) => {
+    // Prevent concurrent fetches
+    if (fetchingRef.current) {
+      console.log('Fetch already in progress, skipping...');
+      return;
+    }
+
+    fetchingRef.current = true;
+
     if (loadMore) {
       setLoadingMore(true);
     } else {
@@ -148,11 +142,14 @@ export default function HomeScreen() {
       setIsLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
+      fetchingRef.current = false; // Reset fetch guard
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
+    // Reset fetch guard to allow refresh even if a fetch is in progress
+    fetchingRef.current = false;
     fetchListings(false);
   };
 
@@ -189,7 +186,10 @@ export default function HomeScreen() {
           </View>
           
           {loggedInUser ? (
-            <View style={styles.userContainer}>
+            <TouchableOpacity
+              style={styles.userContainer}
+              onPress={() => router.push('/(tabs)/profile')}
+            >
               <Text style={styles.welcomeText}>
                 Hi, {loggedInUser.name?.split(' ')[0]}
               </Text>
@@ -198,7 +198,7 @@ export default function HomeScreen() {
                   {loggedInUser.name?.charAt(0).toUpperCase()}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity 
               style={styles.loginButton}

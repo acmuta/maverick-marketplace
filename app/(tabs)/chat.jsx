@@ -10,16 +10,10 @@ import {
   StatusBar
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Query } from 'react-native-appwrite';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  account,
-  databases,
-  DATABASE_ID,
-  CHATS_COLLECTION_ID,
-  USERS_COLLECTION_ID
-} from '../../appwrite';
+import { useAuth } from '../contexts/AuthContext';
+import { useChat } from '../contexts/ChatContext';
 
 // Define consistent theme colors - matching home page
 const COLORS = {
@@ -40,110 +34,32 @@ const COLORS = {
 };
 
 export default function ChatTab() {
-  const [isLoading, setIsLoading] = useState(true);
+  const { user: currentUser } = useAuth(); // Use cached user from AuthContext
+  const { chats, isLoadingChats, refreshChats } = useChat(); // Use cached chats from ChatContext
   const [refreshing, setRefreshing] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [chats, setChats] = useState([]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
-  useEffect(() => {
-    checkSession();
-  }, []);
 
   // Refresh chats when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       if (currentUser) {
-        fetchChats(currentUser.$id);
+        refreshChatsWithLoading();
       }
     }, [currentUser])
   );
 
-  const checkSession = async () => {
+  const refreshChatsWithLoading = async () => {
     try {
-      const session = await account.getSession('current');
-      if (session) {
-        const user = await account.get();
-        setCurrentUser(user);
-        fetchChats(user.$id);
-      } else {
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.log('No active session found');
-      setIsLoading(false);
-    }
-  };
-
-  const fetchChats = async (userId) => {
-    if (!userId) return;
-    
-    setIsLoading(true);
-    try {
-      // Fetch chats where user is either buyer or seller
-      const chatsResponse = await databases.listDocuments(
-        DATABASE_ID,
-        CHATS_COLLECTION_ID,
-        [
-          Query.orderDesc('updatedAt')
-        ]
-      );
-      
-      // Filter chats where the user is either buyer or seller
-      const userChats = chatsResponse.documents.filter(
-        chat => chat.buyerId === userId || chat.sellerId === userId
-      );
-      
-      // Fetch user profiles for chat participants
-      const enhancedChats = await Promise.all(
-        userChats.map(async (chat) => {
-          const otherUserId = chat.buyerId === userId ? chat.sellerId : chat.buyerId;
-
-          try {
-            // Use getDocument with account ID directly
-            const otherUserProfile = await databases.getDocument(
-              DATABASE_ID,
-              USERS_COLLECTION_ID,
-              otherUserId
-            );
-
-            return {
-              ...chat,
-              otherUser: {
-                userId: otherUserId,
-                displayName: otherUserProfile.displayName
-              }
-            };
-          } catch (error) {
-            console.log(`Error fetching profile for user ${otherUserId}:`, error);
-            return {
-              ...chat,
-              otherUser: {
-                userId: otherUserId,
-                displayName: 'Unknown User'
-              }
-            };
-          }
-        })
-      );
-      
-      setChats(enhancedChats);
-    } catch (error) {
-      console.error('Error fetching chats:', error);
+      await refreshChats();
     } finally {
-      setIsLoading(false);
       setRefreshing(false);
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    if (currentUser) {
-      fetchChats(currentUser.$id);
-    } else {
-      setRefreshing(false);
-    }
+    refreshChatsWithLoading();
   };
 
   const formatDate = (dateString) => {
@@ -187,7 +103,7 @@ export default function ChatTab() {
     </TouchableOpacity>
   );
 
-  if (isLoading && !refreshing) {
+  if (isLoadingChats && !refreshing) {
     return (
       <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.darkBlue} />
@@ -225,7 +141,10 @@ export default function ChatTab() {
             <Text style={styles.headerTitle}>Messages</Text>
           </View>
           
-          <View style={styles.userContainer}>
+          <TouchableOpacity
+            style={styles.userContainer}
+            onPress={() => router.push('/(tabs)/profile')}
+          >
             <Text style={styles.welcomeText}>
               {currentUser?.name?.split(' ')[0] || 'User'}
             </Text>
@@ -234,7 +153,7 @@ export default function ChatTab() {
                 {currentUser?.name?.charAt(0).toUpperCase() || 'U'}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
       

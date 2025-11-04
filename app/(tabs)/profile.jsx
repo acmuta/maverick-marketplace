@@ -4,8 +4,9 @@ import { Query } from 'react-native-appwrite';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { account, databases, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
+import { databases, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
 import UserProfileForm from '../components/UserProfileForm';
+import { useAuth } from '../contexts/AuthContext';
 
 // Define consistent theme colors - matching home page
 const COLORS = {
@@ -29,10 +30,10 @@ const COLORS = {
 };
 
 export default function ProfileScreen() {
-  const [user, setUser] = useState(null);
+  const { user, logout: authLogout } = useAuth();
   const [profile, setProfile] = useState(null);
   const [myListings, setMyListings] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -49,71 +50,66 @@ export default function ProfileScreen() {
   );
   
   const fetchUserData = async () => {
-    setIsLoading(true);
+    if (!user) return; // No user logged in
+
+    setIsLoadingData(true);
     try {
+      // Fetch profile
       try {
-        const currentUser = await account.get();
-        setUser(currentUser);
-
-        try {
-          // Use getDocument with account ID directly
-          const userProfile = await databases.getDocument(
-            DATABASE_ID,
-            USERS_COLLECTION_ID,
-            currentUser.$id
-          );
-          setProfile(userProfile);
-        } catch (profileError) {
-          if (profileError.code === 404) {
-            // Profile doesn't exist, create it
-            console.log('Profile not found, creating default profile');
-            try {
-              const newProfile = await databases.createDocument(
-                DATABASE_ID,
-                USERS_COLLECTION_ID,
-                currentUser.$id,
-                {
-                  displayName: currentUser.name || 'New User',
-                  bio: '',
-                  avatarUrl: '',
-                  contactEmail: currentUser.email || '',
-                  phoneNumber: '',
-                  createdAt: new Date().toISOString(),
-                }
-              );
-              setProfile(newProfile);
-            } catch (createError) {
-              console.error('Failed to create profile:', createError);
-            }
-          } else {
-            console.error('Error fetching profile:', profileError);
-          }
-        }
-
-        const listingsResponse = await databases.listDocuments(
+        const userProfile = await databases.getDocument(
           DATABASE_ID,
-          LISTINGS_COLLECTION_ID,
-          [
-            Query.equal('userId', currentUser.$id),
-            Query.orderDesc('createdAt')
-          ]
+          USERS_COLLECTION_ID,
+          user.$id
         );
-
-        setMyListings(listingsResponse.documents);
-      } catch (error) {
-        console.log('No active session found');
+        setProfile(userProfile);
+      } catch (profileError) {
+        if (profileError.code === 404) {
+          // Profile doesn't exist, create it
+          console.log('Profile not found, creating default profile');
+          try {
+            const newProfile = await databases.createDocument(
+              DATABASE_ID,
+              USERS_COLLECTION_ID,
+              user.$id,
+              {
+                displayName: user.name || 'New User',
+                bio: '',
+                avatarUrl: '',
+                contactEmail: user.email || '',
+                phoneNumber: '',
+                createdAt: new Date().toISOString(),
+              }
+            );
+            setProfile(newProfile);
+          } catch (createError) {
+            console.error('Failed to create profile:', createError);
+          }
+        } else {
+          console.error('Error fetching profile:', profileError);
+        }
       }
+
+      // Fetch listings
+      const listingsResponse = await databases.listDocuments(
+        DATABASE_ID,
+        LISTINGS_COLLECTION_ID,
+        [
+          Query.equal('userId', user.$id),
+          Query.orderDesc('createdAt')
+        ]
+      );
+
+      setMyListings(listingsResponse.documents);
     } catch (error) {
       console.error('Error fetching user data:', error);
     } finally {
-      setIsLoading(false);
+      setIsLoadingData(false);
     }
   };
   
   const handleLogout = async () => {
     try {
-      await account.deleteSession('current');
-      setUser(null);
+      await authLogout();
       setProfile(null);
       setMyListings([]);
       router.push('/login');
@@ -127,16 +123,6 @@ export default function ProfileScreen() {
     setIsEditing(false);
     fetchUserData();
   };
-  
-  if (isLoading) {
-    return (
-      <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.darkBlue} />
-        <ActivityIndicator size="large" color={COLORS.brightOrange} />
-        <Text style={styles.loadingText}>Loading profile...</Text>
-      </View>
-    );
-  }
   
   if (!user) {
     return (
