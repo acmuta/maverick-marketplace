@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, ActivityIndicator, StatusBar } from 'react-native';
 import { Query } from 'react-native-appwrite';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { account, databases, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
@@ -40,6 +40,13 @@ export default function ProfileScreen() {
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchUserData();
+    }, [])
+  );
   
   const fetchUserData = async () => {
     setIsLoading(true);
@@ -47,17 +54,42 @@ export default function ProfileScreen() {
       try {
         const currentUser = await account.get();
         setUser(currentUser);
-        
-        const profileResponse = await databases.listDocuments(
-          DATABASE_ID,
-          USERS_COLLECTION_ID,
-          [Query.equal('userId', currentUser.$id)]
-        );
-        
-        if (profileResponse.documents.length > 0) {
-          setProfile(profileResponse.documents[0]);
+
+        try {
+          // Use getDocument with account ID directly
+          const userProfile = await databases.getDocument(
+            DATABASE_ID,
+            USERS_COLLECTION_ID,
+            currentUser.$id
+          );
+          setProfile(userProfile);
+        } catch (profileError) {
+          if (profileError.code === 404) {
+            // Profile doesn't exist, create it
+            console.log('Profile not found, creating default profile');
+            try {
+              const newProfile = await databases.createDocument(
+                DATABASE_ID,
+                USERS_COLLECTION_ID,
+                currentUser.$id,
+                {
+                  displayName: currentUser.name || 'New User',
+                  bio: '',
+                  avatarUrl: '',
+                  contactEmail: currentUser.email || '',
+                  phoneNumber: '',
+                  createdAt: new Date().toISOString(),
+                }
+              );
+              setProfile(newProfile);
+            } catch (createError) {
+              console.error('Failed to create profile:', createError);
+            }
+          } else {
+            console.error('Error fetching profile:', profileError);
+          }
         }
-        
+
         const listingsResponse = await databases.listDocuments(
           DATABASE_ID,
           LISTINGS_COLLECTION_ID,
@@ -66,7 +98,7 @@ export default function ProfileScreen() {
             Query.orderDesc('createdAt')
           ]
         );
-        
+
         setMyListings(listingsResponse.documents);
       } catch (error) {
         console.log('No active session found');

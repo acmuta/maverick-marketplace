@@ -118,19 +118,21 @@ export default function ChatDetailScreen() {
       const otherUserId = chatResponse.buyerId === userId
         ? chatResponse.sellerId
         : chatResponse.buyerId;
-      
-      const userProfileResponse = await databases.listDocuments(
-        DATABASE_ID,
-        USERS_COLLECTION_ID,
-        [Query.equal('userId', otherUserId)]
-      );
-      
-      if (userProfileResponse.documents.length > 0) {
+
+      try {
+        // Use getDocument with account ID directly
+        const otherUserProfile = await databases.getDocument(
+          DATABASE_ID,
+          USERS_COLLECTION_ID,
+          otherUserId
+        );
+
         setOtherUser({
           userId: otherUserId,
-          ...userProfileResponse.documents[0]
+          ...otherUserProfile
         });
-      } else {
+      } catch (error) {
+        console.error('Error fetching other user profile:', error);
         setOtherUser({
           userId: otherUserId,
           displayName: 'Unknown User'
@@ -300,7 +302,11 @@ export default function ChatDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       {/* Chat Header */}
       {chatInfo && (
         <View style={styles.chatHeader}>
@@ -312,7 +318,7 @@ export default function ChatDetailScreen() {
           </Text>
         </View>
       )}
-      
+
       {/* Messages List */}
       <FlatList
         ref={flatListRef}
@@ -327,36 +333,33 @@ export default function ChatDetailScreen() {
           }
         }}
         keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
       />
-      
-      {/* Keyboard Avoiding Input */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 85 : 0}
-      >
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={newMessage}
-            onChangeText={setNewMessage}
-            placeholder="Type a message..."
-            placeholderTextColor={COLORS.mediumGray}
-            multiline
+
+      {/* Message Input */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          value={newMessage}
+          onChangeText={setNewMessage}
+          placeholder="Type a message..."
+          placeholderTextColor={COLORS.mediumGray}
+          multiline
+          maxLength={1000}
+        />
+        <TouchableOpacity
+          style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]}
+          onPress={sendMessage}
+          disabled={!newMessage.trim()}
+        >
+          <Ionicons
+            name="send"
+            size={20}
+            color={!newMessage.trim() ? COLORS.mediumGray : COLORS.white}
           />
-          <TouchableOpacity 
-            style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]} 
-            onPress={sendMessage}
-            disabled={!newMessage.trim()}
-          >
-            <Ionicons 
-              name="send" 
-              size={20} 
-              color={!newMessage.trim() ? COLORS.mediumGray : COLORS.white} 
-            />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </View>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

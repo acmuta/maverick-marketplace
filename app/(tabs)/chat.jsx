@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   StatusBar
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Query } from 'react-native-appwrite';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { 
-  account, 
-  databases, 
-  DATABASE_ID, 
+import {
+  account,
+  databases,
+  DATABASE_ID,
   CHATS_COLLECTION_ID,
   USERS_COLLECTION_ID
 } from '../../appwrite';
@@ -50,6 +50,15 @@ export default function ChatTab() {
   useEffect(() => {
     checkSession();
   }, []);
+
+  // Refresh chats when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (currentUser) {
+        fetchChats(currentUser.$id);
+      }
+    }, [currentUser])
+  );
 
   const checkSession = async () => {
     try {
@@ -90,18 +99,15 @@ export default function ChatTab() {
       const enhancedChats = await Promise.all(
         userChats.map(async (chat) => {
           const otherUserId = chat.buyerId === userId ? chat.sellerId : chat.buyerId;
-          
+
           try {
-            const userProfileResponse = await databases.listDocuments(
+            // Use getDocument with account ID directly
+            const otherUserProfile = await databases.getDocument(
               DATABASE_ID,
               USERS_COLLECTION_ID,
-              [Query.equal('userId', otherUserId)]
+              otherUserId
             );
-            
-            const otherUserProfile = userProfileResponse.documents.length > 0 
-              ? userProfileResponse.documents[0] 
-              : { displayName: 'Unknown User' };
-              
+
             return {
               ...chat,
               otherUser: {

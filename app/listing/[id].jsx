@@ -90,22 +90,19 @@ export default function ListingDetailScreen() {
 
   const fetchSellerData = async (userId) => {
     if (!userId) return null;
-    
+
     try {
-      const sellerResponse = await databases.listDocuments(
+      // Use getDocument with account ID directly
+      const sellerData = await databases.getDocument(
         DATABASE_ID,
         USERS_COLLECTION_ID,
-        [Query.equal('userId', userId)]
+        userId
       );
-
-      if (sellerResponse.documents.length > 0) {
-        const sellerData = sellerResponse.documents[0];
-        setSeller(sellerData);
-        return sellerData;
-      }
-      return null;
+      setSeller(sellerData);
+      return sellerData;
     } catch (error) {
       console.log('Could not fetch seller information:', error);
+      setSeller({ $id: userId, displayName: 'Unknown Seller' });
       return null;
     }
   };
@@ -209,27 +206,6 @@ export default function ListingDetailScreen() {
         sellerId: listing.userId
       }
     });
-
-    if (seller) {
-      const contactMessage = `Contact ${seller.displayName || 'the seller'} at:`;
-      const contactDetails = [];
-      
-      if (seller.contactEmail) {
-        contactDetails.push(`Email: ${seller.contactEmail}`);
-      }
-      
-      if (seller.phoneNumber) {
-        contactDetails.push(`Phone: ${seller.phoneNumber}`);
-      }
-      
-      if (contactDetails.length === 0) {
-        contactDetails.push('No contact information provided.');
-      }
-      
-      Alert.alert('Contact Information', `${contactMessage}\n\n${contactDetails.join('\n')}`);
-    } else {
-      Alert.alert('Contact Information', 'Seller information is not available');
-    }
   };
 
   const deleteListing = async () => {

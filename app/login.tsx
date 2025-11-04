@@ -67,7 +67,13 @@ export default function LoginScreen() {
 
     if (!email.trim()) errors.email = "Email is required.";
     if (!password.trim()) errors.password = "Password is required.";
-    if (mode === 'register' && !name.trim()) errors.name = "Name is required.";
+    if (mode === 'register') {
+      if (!name.trim()) {
+        errors.name = "Name is required.";
+      } else if (name.trim().length < 2) {
+        errors.name = "Name must be at least 2 characters.";
+      }
+    }
 
     setFieldErrors(errors);
 
@@ -89,29 +95,34 @@ export default function LoginScreen() {
       } else {
         // Register a new user
         const user = await account.create(ID.unique(), email, password, name);
-        
+
         console.log("User created:", user);
-        
+
         await account.createEmailPasswordSession(email, password);
         console.log("Session created for new user");
 
-        try{
+        try {
+            // Create profile document using account ID as document ID
             await databases.createDocument(
                 DATABASE_ID,
                 USERS_COLLECTION_ID,
-                ID.unique(),
+                user.$id,  // Use account ID as document ID
                 {
-                    userId: user.$id,
-                    displayName: name,
+                    displayName: name.trim(),
                     bio: '',
-                    contactEmail: '',
+                    avatarUrl: '',
+                    contactEmail: email,
                     phoneNumber: '',
                     createdAt: new Date().toISOString(),
                 }
             );
             console.log("Default profile created for user");
-        } catch (profileError){
+        } catch (profileError) {
             console.error("Error creating default profile:", profileError);
+            Alert.alert(
+                'Warning',
+                'Account created but profile setup incomplete. Please update your profile in settings.'
+            );
         }
       }
       

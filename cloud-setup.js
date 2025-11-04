@@ -43,26 +43,19 @@ async function createUsersCollection(databaseId) {
         
         console.log('Adding attributes to users collection...');
         const attributes = [
-            databases.createStringAttribute(databaseId, collection.$id, 'userId', 36, true),
-            databases.createStringAttribute(databaseId, collection.$id, 'displayName', 100, false),
+            // userId field removed - we use Appwrite account ID as document ID instead
+            databases.createStringAttribute(databaseId, collection.$id, 'displayName', 100, true), // Now required
             databases.createStringAttribute(databaseId, collection.$id, 'bio', 1000, false),
             databases.createStringAttribute(databaseId, collection.$id, 'avatarUrl', 255, false),
             databases.createStringAttribute(databaseId, collection.$id, 'contactEmail', 255, false),
             databases.createStringAttribute(databaseId, collection.$id, 'phoneNumber', 20, false),
             databases.createDatetimeAttribute(databaseId, collection.$id, 'createdAt', true)
         ];
-        
+
         await Promise.all(attributes);
         await wait(2000); // Wait for attributes to be processed
-        
-        console.log('Creating index for users collection...');
-        await databases.createIndex(
-            databaseId,
-            collection.$id,
-            'user_index',
-            'key',
-            ['userId']
-        );
+
+        // userId index removed - no longer needed since we query by document ID directly
         
         console.log('Users collection set up successfully');
         return collection.$id;

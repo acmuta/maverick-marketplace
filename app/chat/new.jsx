@@ -78,15 +78,18 @@ export default function NewChatScreen() {
       setListingInfo(listing);
       
       const sellerIdToUse = sellerId || listing.userId;
-      
-      const sellerProfileResponse = await databases.listDocuments(
-        DATABASE_ID,
-        USERS_COLLECTION_ID,
-        [Query.equal('userId', sellerIdToUse)]
-      );
-      
-      if (sellerProfileResponse.documents.length > 0) {
-        setSellerInfo(sellerProfileResponse.documents[0]);
+
+      try {
+        // Use getDocument with account ID directly
+        const sellerProfile = await databases.getDocument(
+          DATABASE_ID,
+          USERS_COLLECTION_ID,
+          sellerIdToUse
+        );
+        setSellerInfo(sellerProfile);
+      } catch (error) {
+        console.error('Error fetching seller profile:', error);
+        setSellerInfo({ displayName: 'Unknown Seller' });
       }
       
     } catch (error) {

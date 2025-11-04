@@ -128,19 +128,21 @@ export default function ChatDetail(){
           const otherUserId = chatResponse.buyerId === userId
             ? chatResponse.sellerId
             : chatResponse.buyerId;
-          
-          const userProfileResponse = await databases.listDocuments(
-            DATABASE_ID,
-            USERS_COLLECTION_ID,
-            [Query.equal('userId', otherUserId)]
-          );
-          
-          if (userProfileResponse.documents.length > 0) {
+
+          try {
+            // Use getDocument with account ID directly
+            const otherUserProfile = await databases.getDocument(
+              DATABASE_ID,
+              USERS_COLLECTION_ID,
+              otherUserId
+            );
+
             setOtherUser({
               userId: otherUserId,
-              ...userProfileResponse.documents[0]
+              ...otherUserProfile
             });
-          } else {
+          } catch (error) {
+            console.error('Error fetching other user profile:', error);
             setOtherUser({
               userId: otherUserId,
               displayName: 'Unknown User'
