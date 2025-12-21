@@ -135,15 +135,31 @@ export default function ListingForm({ existingListing = null, isEditMode = false
         ...(primaryImageFileId && { primaryImageFileId }),
       };
 
+      let listingId;
       if (isEditMode && existingListing) {
         await databases.updateDocument(DATABASE_ID, LISTINGS_COLLECTION_ID, existingListing.$id, payload);
-        Alert.alert('Success', 'Listing updated successfully!');
+        listingId = existingListing.$id;
       } else {
         payload.createdAt = new Date().toISOString();
-        await databases.createDocument(DATABASE_ID, LISTINGS_COLLECTION_ID, ID.unique(), payload);
-        Alert.alert('Success', 'Listing posted successfully!');
+        listingId = ID.unique();
+        await databases.createDocument(DATABASE_ID, LISTINGS_COLLECTION_ID, listingId, payload);
       }
 
+      // 3. Create image documents in IMAGES_COLLECTION_ID for detail view
+      for (let i = 0; i < uploadedImageIds.length; i++) {
+        await databases.createDocument(
+          DATABASE_ID,
+          IMAGES_COLLECTION_ID,
+          ID.unique(),
+          {
+            listingId: listingId,
+            fileId: uploadedImageIds[i],
+            order: existingImages.length + i,
+          }
+        );
+      }
+
+      Alert.alert('Success', isEditMode ? 'Listing updated!' : 'Listing posted!');
       router.replace('/(tabs)/profile');
 
     } catch (error) {
