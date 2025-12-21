@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, RefreshControl, StyleSheet, Alert, StatusBar } from 'react-native';
+import { View, ScrollView, RefreshControl, StyleSheet, Alert, StatusBar, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Text, ActivityIndicator, Divider, useTheme, Avatar, IconButton, Surface } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import { useAuth } from '../contexts/AuthContext';
-import { databases, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID, Query } from '../../appwrite';
+import { databases, getImageUrl, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID, IMAGES_BUCKET_ID, Query } from '../../appwrite';
 import UserProfileForm from '../components/UserProfileForm';
 import { Feather, Ionicons } from '@expo/vector-icons';
 
@@ -112,22 +113,40 @@ export default function ProfileScreen() {
                   <Text style={{ color: colors.secondary }}>No listings yet.</Text>
                 </Surface>
               ) : (
-                myListings.map(item => (
-                  <Surface key={item.$id} style={{ marginBottom: 12, borderRadius: 16, backgroundColor: 'white', elevation: 1 }} onPress={() => router.push(`/listing/${item.$id}`)}>
-                    <View style={{ flexDirection: 'row', padding: 12, alignItems: 'center' }}>
-                      <View style={{ width: 50, height: 50, backgroundColor: colors.secondaryContainer, borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
-                        <Feather name="image" size={24} color={colors.secondary} />
+                myListings.map(item => {
+                  const imageUrl = item.primaryImageFileId
+                    ? getImageUrl(IMAGES_BUCKET_ID, item.primaryImageFileId, 100, 100)
+                    : null;
+                  return (
+                    <Pressable
+                      key={item.$id}
+                      onPress={() => router.push(`/listing/${item.$id}`)}
+                      style={{ marginBottom: 12, borderRadius: 16, backgroundColor: 'white', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 }}
+                    >
+                      <View style={{ flexDirection: 'row', padding: 12, alignItems: 'center' }}>
+                        <View style={{ width: 50, height: 50, backgroundColor: colors.secondaryContainer, borderRadius: 8, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' }}>
+                          {imageUrl ? (
+                            <Image
+                              source={{ uri: imageUrl }}
+                              style={{ width: 50, height: 50 }}
+                              contentFit="cover"
+                              transition={200}
+                            />
+                          ) : (
+                            <Feather name="image" size={24} color={colors.secondary} />
+                          )}
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text variant="titleMedium" style={{ fontWeight: '600' }} numberOfLines={1}>{item.title}</Text>
+                          <Text style={{ color: item.status === 'active' ? '#166534' : colors.secondary, fontWeight: 'bold', fontSize: 12 }}>
+                            {item.status.toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>${item.price}</Text>
                       </View>
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text variant="titleMedium" style={{ fontWeight: '600' }} numberOfLines={1}>{item.title}</Text>
-                        <Text style={{ color: item.status === 'active' ? '#166534' : colors.secondary, fontWeight: 'bold', fontSize: 12 }}>
-                          {item.status.toUpperCase()}
-                        </Text>
-                      </View>
-                      <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>${item.price}</Text>
-                    </View>
-                  </Surface>
-                ))
+                    </Pressable>
+                  );
+                })
               )}
             </View>
           )}

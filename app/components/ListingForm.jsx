@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { ID, Query } from 'react-native-appwrite';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { databases, getImageUrl, DATABASE_ID, IMAGES_COLLECTION_ID, IMAGES_BUCKET_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
+import { databases, getImageUrl, DATABASE_ID, IMAGES_COLLECTION_ID, IMAGES_BUCKET_ID, LISTINGS_COLLECTION_ID, Permission, Role } from '../../appwrite';
 import { useAuth } from '../contexts/AuthContext';
 import { TextInput, Button, Text, useTheme, HelperText, IconButton, Surface } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
@@ -142,7 +142,18 @@ export default function ListingForm({ existingListing = null, isEditMode = false
       } else {
         payload.createdAt = new Date().toISOString();
         listingId = ID.unique();
-        await databases.createDocument(DATABASE_ID, LISTINGS_COLLECTION_ID, listingId, payload);
+        // Add document-level permissions so owner can delete
+        await databases.createDocument(
+          DATABASE_ID,
+          LISTINGS_COLLECTION_ID,
+          listingId,
+          payload,
+          [
+            Permission.read(Role.any()),
+            Permission.update(Role.user(currentUser.$id)),
+            Permission.delete(Role.user(currentUser.$id)),
+          ]
+        );
       }
 
       // 3. Create image documents in IMAGES_COLLECTION_ID for detail view
@@ -155,7 +166,12 @@ export default function ListingForm({ existingListing = null, isEditMode = false
             listingId: listingId,
             fileId: uploadedImageIds[i],
             order: existingImages.length + i,
-          }
+          },
+          [
+            Permission.read(Role.any()),
+            Permission.update(Role.user(currentUser.$id)),
+            Permission.delete(Role.user(currentUser.$id)),
+          ]
         );
       }
 

@@ -111,7 +111,7 @@ export default function HomeScreen() {
       {/* Anti-Sting Header */}
       <Appbar.Header style={{ backgroundColor: colors.background, elevation: 0, height: 60 }}>
         <Appbar.Content
-          title="CampusMarket"
+          title="MaverickMarket"
           titleStyle={{
             color: colors.primary, // Indigo
             fontWeight: '800',

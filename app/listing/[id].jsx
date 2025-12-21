@@ -45,6 +45,48 @@ export default function ListingDetailScreen() {
     router.push({ pathname: '/chat/new', params: { listingId: listing.$id, sellerId: listing.userId } });
   };
 
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Listing',
+      'Are you sure you want to delete this listing? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Get all image documents for this listing
+              const imageDoc = await databases.listDocuments(
+                DATABASE_ID,
+                IMAGES_COLLECTION_ID,
+                [Query.equal('listingId', id)]
+              );
+
+              // Delete images from storage and image documents
+              for (const doc of imageDoc.documents) {
+                try {
+                  await storage.deleteFile(IMAGES_BUCKET_ID, doc.fileId);
+                  await databases.deleteDocument(DATABASE_ID, IMAGES_COLLECTION_ID, doc.$id);
+                } catch (e) {
+                  console.error('Error deleting image:', e);
+                }
+              }
+
+              // Delete the listing document
+              await databases.deleteDocument(DATABASE_ID, LISTINGS_COLLECTION_ID, id);
+              Alert.alert('Deleted', 'Listing has been deleted.');
+              router.replace('/(tabs)/profile');
+            } catch (e) {
+              console.error('Delete error:', e);
+              Alert.alert('Error', 'Failed to delete listing.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (isLoading) return <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={colors.primary} /></View>;
   if (!listing) return null;
 
@@ -113,7 +155,7 @@ export default function ListingDetailScreen() {
       <Surface style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: insets.bottom + 16, backgroundColor: 'white', elevation: 8 }}>
         {isOwner ? (
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Button mode="outlined" onPress={() => { }} style={{ flex: 1, borderRadius: 12, borderColor: colors.error }} textColor={colors.error}>Delete</Button>
+            <Button mode="outlined" onPress={handleDelete} style={{ flex: 1, borderRadius: 12, borderColor: colors.error }} textColor={colors.error}>Delete</Button>
             <Button mode="contained" onPress={() => router.push(`/listing/edit/${listing.$id}`)} style={{ flex: 1, borderRadius: 12 }}>Edit</Button>
           </View>
         ) : (

@@ -55,7 +55,7 @@ export default function LoginScreen() {
       <StatusBar barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text variant="displaySmall" style={{ color: colors.primary, fontWeight: '900', letterSpacing: -1 }}>CampusMarket</Text>
+          <Text variant="displaySmall" style={{ color: colors.primary, fontWeight: '900', letterSpacing: -1 }}>MaverickMarket</Text>
           <Text variant="bodyLarge" style={{ color: colors.secondary, marginTop: 8 }}>The marketplace for everything.</Text>
         </View>
 
