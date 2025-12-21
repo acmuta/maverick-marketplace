@@ -127,14 +127,6 @@ export default function HomeScreen() {
           style={{ borderRadius: 12 }} // Soft rect
           onPress={() => router.push('/search')}
         />
-        <IconButton
-          icon="filter-variant"
-          iconColor={colors.onBackground}
-          containerColor="white"
-          size={24}
-          style={{ borderRadius: 12 }}
-          onPress={() => { }}
-        />
       </Appbar.Header>
 
       <View style={styles.mainContent}>
