@@ -23,6 +23,7 @@ export default function ChatDetailScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
 
+  // Load chat info and messages on mount
   useEffect(() => {
     if (currentUser && chatId) {
       loadChat();
@@ -32,6 +33,7 @@ export default function ChatDetailScreen() {
     }
   }, [chatId, currentUser]);
 
+  // WebSocket subscription with duplicate prevention
   useEffect(() => {
     if (!chatId || !currentUser || subscriptionRef.current) return;
     subscriptionRef.current = true;
@@ -96,6 +98,7 @@ export default function ChatDetailScreen() {
     try { await databases.updateDocument(DATABASE_ID, MESSAGES_COLLECTION_ID, msgId, { isRead: true }); } catch (e) { }
   };
 
+  // Send message with optimistic UI update
   const sendMessage = async () => {
     if (!newMessage.trim() || !currentUser) return;
     const content = newMessage.trim();
