@@ -30,10 +30,24 @@ export default function ListingForm({ existingListing = null, isEditMode = false
   const categories = ['Electronics', 'Textbooks', 'Furniture', 'Clothing', 'Sports Equipment', 'Home Appliances', 'School Supplies', 'Other'];
   const conditions = ['New', 'Like New', 'Good', 'Fair', 'Poor'];
 
-  // ... (Keep existing image loading/selection logic same as previous, omitted for brevity but assumed present)
-  // Re-used exact logic from previous iteration, just UI update
-  useEffect(() => { if (isEditMode && existingListing) loadExistingImages(); }, [isEditMode]);
-  const loadExistingImages = async () => { /* ... */ };
+  useEffect(() => {
+    if (isEditMode && existingListing) loadExistingImages();
+  }, [isEditMode, existingListing]);
+
+  const loadExistingImages = async () => {
+    try {
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        IMAGES_COLLECTION_ID,
+        [Query.equal('listingId', existingListing.$id), Query.orderAsc('order')]
+      );
+      // Store the fileIds of existing images
+      const imageFileIds = response.documents.map(doc => doc.fileId);
+      setExistingImages(imageFileIds);
+    } catch (error) {
+      console.error('Error loading existing images:', error);
+    }
+  };
   const handleSelectImage = async () => {
     Alert.alert(
       'Add Photo',
@@ -204,6 +218,22 @@ export default function ListingForm({ existingListing = null, isEditMode = false
               <Feather name="camera" size={28} color={colors.primary} />
               <Text variant="labelSmall" style={{ color: colors.primary, marginTop: 4, fontWeight: 'bold' }}>ADD</Text>
             </Pressable>
+            {/* Existing images from storage */}
+            {existingImages.map((fileId, index) => {
+              const imageUrl = getImageUrl(IMAGES_BUCKET_ID, fileId, 200, 200);
+              return (
+                <View key={`existing-${fileId}`} style={{ position: 'relative' }}>
+                  <Image source={{ uri: imageUrl }} style={{ width: 90, height: 90, borderRadius: 12 }} />
+                  <Pressable
+                    onPress={() => setExistingImages(existingImages.filter((_, i) => i !== index))}
+                    style={{ position: 'absolute', top: -8, right: -8, backgroundColor: 'white', borderRadius: 12 }}
+                  >
+                    <Feather name="x-circle" size={20} color={colors.error} />
+                  </Pressable>
+                </View>
+              );
+            })}
+            {/* New images to upload */}
             {images.map((uri, index) => (
               <View key={index} style={{ position: 'relative' }}>
                 <Image source={{ uri }} style={{ width: 90, height: 90, borderRadius: 12 }} />
