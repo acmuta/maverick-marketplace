@@ -1,20 +1,23 @@
 import { Stack } from 'expo-router';
+import { PaperProvider } from 'react-native-paper';
 import { AuthProvider } from './contexts/AuthContext';
 import { ChatProvider } from './contexts/ChatContext';
+import { theme } from './theme-config'; // Updated import
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <ChatProvider>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen name="chat" options={{ headerShown: false }} />
-          <Stack.Screen name="listing/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="listing/edit/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="search" options={{ headerShown: false }} />
-        </Stack>
-      </ChatProvider>
-    </AuthProvider>
+    <PaperProvider theme={theme}>
+      <AuthProvider>
+        <ChatProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="search" />
+            <Stack.Screen name="listing/[id]" />
+            <Stack.Screen name="listing/edit/[id]" />
+          </Stack>
+        </ChatProvider>
+      </AuthProvider>
+    </PaperProvider>
   );
 }

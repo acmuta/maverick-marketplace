@@ -1,168 +1,117 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { Card, Text, useTheme, ActivityIndicator, TouchableRipple } from 'react-native-paper';
+import { Feather } from '@expo/vector-icons';
 
-export default function ListingGrid({ listing, isLoading, refreshing, onRefresh, onLoadMore, hasMore, loadingMore }){
-    const router = useRouter();
-  
-    const renderListingItem = ({ item }) => (
-      <TouchableOpacity
-        style={styles.listingCard}
-        onPress={() => router.push(`/listing/${item.$id}`)}
-      >
-        <View style={styles.imageContainer}>
-        {item.imageUrl ? (
-            <Image 
-                source={{ 
-                    uri: item.imageUrl
-                }}
-                style={{...styles.image, minWidth: 150, minHeight: 150}}
-                contentFit="cover"
-                cachePolicy="disk"
-                transition={300}
-                onError={(error) => {
-                  console.error("Image error:", error);
-                }}
-            />
-        ) : (
-            <View style={styles.placeholderImage}>
-                <Text style={styles.placeholderText}>No Image</Text>
-            </View>
-        )}
-        </View>
-        <View style={styles.infoContainer}>
-          <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-          <Text style={styles.price}>${item.price.toFixed(2)}</Text>
-          <Text style={styles.category} numberOfLines={1}>{item.category}</Text>
-        </View>
-      </TouchableOpacity>
-    );
-    
-    if (listing.length === 0 && !isLoading) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No listings found</Text>
-        </View>
-      );
-    }
-    
-    const renderFooter = () => {
-      if (!loadingMore) return null;
-      return (
-        <View style={styles.footerLoader}>
-          <Text style={styles.loadingMoreText}>Loading more...</Text>
-        </View>
-      );
-    };
+const { width } = Dimensions.get('window');
+const GAP = 1; // Tight gap
+const COLUMNS = 2;
+const ITEM_WIDTH = (width - (GAP * (COLUMNS - 1))) / COLUMNS;
 
-    return (
-      <FlatList
-        data={listing}
-        renderItem={renderListingItem}
-        keyExtractor={item => item.$id}
-        numColumns={2}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing || false}
-            onRefresh={onRefresh}
-            colors={['#FF8A00']}
-            tintColor="#FF8A00"
+export default function ListingGrid({ listing, isLoading, refreshing, onRefresh, onLoadMore, hasMore, loadingMore }) {
+  const router = useRouter();
+  const { colors, roundness } = useTheme();
+
+  const renderListingItem = ({ item }) => (
+    <TouchableRipple
+      onPress={() => router.push(`/listing/${item.$id}`)}
+      style={[styles.itemContainer, { borderColor: colors.outline }]}
+      rippleColor="rgba(0, 0, 0, 0.1)"
+    >
+      <View>
+        {/* Aspect Ratio 1:1 for main grid */}
+        <View style={{ width: '100%', aspectRatio: 1, backgroundColor: colors.secondaryContainer }}>
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={{ flex: 1 }}
+            contentFit="cover"
+            transition={200}
           />
-        }
-        onEndReached={hasMore && !loadingMore ? onLoadMore : null}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-        style={styles.flatList}
-      />
+        </View>
+
+        <View style={styles.infoContainer}>
+          <View style={styles.row}>
+            <Text variant="titleMedium" style={{ fontWeight: '900', flex: 1 }}>${item.price.toFixed(0)}</Text>
+            <Feather name="heart" size={16} color={colors.onSurface} />
+          </View>
+          <Text variant="bodyMedium" numberOfLines={1} style={{ marginTop: 2 }}>{item.title}</Text>
+          <Text variant="labelSmall" style={{ color: colors.secondary, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 }} numberOfLines={1}>
+            {item.category} • {item.condition || 'Used'}
+          </Text>
+        </View>
+      </View>
+    </TouchableRipple>
+  );
+
+  if (listing.length === 0 && !isLoading) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text variant="bodyLarge" style={{ color: colors.secondary }}>No listings found</Text>
+      </View>
     );
+  }
+
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator animating={true} color={colors.primary} size="small" />
+      </View>
+    );
+  };
+
+  return (
+    <FlatList
+      data={listing}
+      renderItem={renderListingItem}
+      keyExtractor={item => item.$id}
+      numColumns={COLUMNS}
+      columnWrapperStyle={{ gap: GAP }}
+      contentContainerStyle={{ gap: GAP, paddingBottom: 20 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing || false}
+          onRefresh={onRefresh}
+          colors={[colors.primary]}
+          tintColor={colors.primary}
+        />
+      }
+      onEndReached={hasMore && !loadingMore ? onLoadMore : null}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={renderFooter}
+      style={{ backgroundColor: colors.background }}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
-    flatList: {
-      backgroundColor: '#0A1929',
-    },
-    listContainer: {
-      padding: 8,
-    },
-    listingCard: {
-      flex: 1,
-      margin: 8,
-      backgroundColor: '#FFFFFF',
-      borderRadius: 10,
-      overflow: 'hidden',
-      elevation: 3,
-      shadowColor: '#0F2C5C',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 2,
-      maxWidth: '47%',
-      borderWidth: 1,
-      borderColor: '#E0E8F7',
-    },
-    imageContainer: {
-      height: 150,
-      width: '100%',
-      backgroundColor: '#E0E8F7',
-    },
-    image: {
-      width: '100%',
-      height: '100%',
-    },
-    placeholderImage: {
-      width: '100%',
-      height: '100%',
-      backgroundColor: '#E0E8F7',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    placeholderText: {
-      color: '#0F2C5C',
-      fontWeight: '500',
-    },
-    infoContainer: {
-      padding: 12,
-      backgroundColor: '#FFFFFF',
-    },
-    title: {
-      fontSize: 14,
-      fontWeight: '600',
-      marginBottom: 6,
-      color: '#0F2C5C',
-    },
-    price: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: '#FF8A00',
-      marginBottom: 6,
-    },
-    category: {
-      fontSize: 12,
-      color: '#5A7299',
-      fontWeight: '500',
-    },
-    emptyContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-      backgroundColor: '#F5F8FF',
-    },
-    emptyText: {
-      fontSize: 16,
-      color: '#0F2C5C',
-      textAlign: 'center',
-      fontWeight: '500',
-    },
-    footerLoader: {
-      paddingVertical: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    loadingMoreText: {
-      fontSize: 14,
-      color: '#FF8A00',
-      fontWeight: '500',
-    },
+  itemContainer: {
+    width: ITEM_WIDTH,
+    borderRightWidth: 0.5, // Simulate grid lines
+    borderBottomWidth: 1,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  infoContainer: {
+    paddingHorizontal: 8,
+    paddingTop: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 50,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

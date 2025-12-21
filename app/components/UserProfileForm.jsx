@@ -1,25 +1,7 @@
 import React, { useState } from "react";
-import { StyleSheet, View, TextInput, Text, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { StyleSheet, View, Alert } from "react-native";
 import { account, databases, DATABASE_ID, USERS_COLLECTION_ID } from '../../appwrite';
-
-// Define consistent theme colors - matching the profile page
-const COLORS = {
-  darkBlue: '#0A1929',
-  mediumBlue: '#0F2942',
-  lightBlue: '#1565C0',
-  orange: '#FF6F00', 
-  brightOrange: '#FF9800',
-  white: '#FFFFFF',
-  lightGray: '#F5F7FA',
-  mediumGray: '#B0BEC5',
-  darkGray: '#546E7A',
-  error: '#FF5252',
-  success: '#4CAF50',
-  background: '#0A1929',
-  cardBackground: '#0F2942',
-  textPrimary: '#FFFFFF',
-  textSecondary: '#B0BEC5',
-};
+import { TextInput, Button, Text, useTheme } from 'react-native-paper';
 
 export default function UserProfileForm({ existingProfile, onProfileSaved }) {
   const [displayName, setDisplayName] = useState(existingProfile?.displayName || '');
@@ -27,42 +9,27 @@ export default function UserProfileForm({ existingProfile, onProfileSaved }) {
   const [contactEmail, setContactEmail] = useState(existingProfile?.contactEmail || '');
   const [phoneNumber, setPhoneNumber] = useState(existingProfile?.phoneNumber || '');
   const [isLoading, setIsLoading] = useState(false);
+  const { colors } = useTheme();
 
   const saveProfile = async () => {
-    if (!displayName.trim()) {
-      Alert.alert('Error', 'Display name is required');
-      return;
-    }
-
-    if (displayName.trim().length < 2) {
-      Alert.alert('Error', 'Display name must be at least 2 characters');
-      return;
-    }
+    if (!displayName.trim()) { Alert.alert('Error', 'Display name is required'); return; }
+    if (displayName.trim().length < 2) { Alert.alert('Error', 'Display name must be at least 2 characters'); return; }
 
     setIsLoading(true);
     try {
       const currentUser = await account.get();
-
       const profileData = {
         displayName: displayName.trim(),
         bio: bio.trim(),
         contactEmail: contactEmail.trim(),
         phoneNumber: phoneNumber.trim(),
       };
-
-      // Update the profile document using account ID as document ID
-      await databases.updateDocument(
-        DATABASE_ID,
-        USERS_COLLECTION_ID,
-        currentUser.$id,
-        profileData
-      );
-
+      await databases.updateDocument(DATABASE_ID, USERS_COLLECTION_ID, currentUser.$id, profileData);
       Alert.alert('Success', 'Profile saved successfully');
       if (onProfileSaved) onProfileSaved();
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert('Error', error.message || 'Failed to save profile. Please try again.');
+      Alert.alert('Error', error.message || 'Failed to save profile.');
     } finally {
       setIsLoading(false);
     }
@@ -70,104 +37,90 @@ export default function UserProfileForm({ existingProfile, onProfileSaved }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Display Name *</Text>
       <TextInput
-        style={styles.input}
+        label="Display Name *"
         value={displayName}
         onChangeText={setDisplayName}
+        mode="flat"
+        style={styles.input}
         placeholder="Your display name"
-        placeholderTextColor={COLORS.mediumGray}
+        underlineColor={colors.outline}
+        activeUnderlineColor={colors.primary}
+        contentStyle={{ paddingHorizontal: 0 }}
+        theme={{ colors: { background: 'transparent' } }}
       />
-      
-      <Text style={styles.label}>Bio</Text>
+
       <TextInput
-        style={[styles.input, styles.textArea]}
+        label="Bio"
         value={bio}
         onChangeText={setBio}
-        placeholder="Tell us about yourself (optional)"
-        placeholderTextColor={COLORS.mediumGray}
+        mode="flat"
+        style={styles.input}
         multiline
         numberOfLines={4}
+        placeholder="Tell us about yourself (optional)"
+        underlineColor={colors.outline}
+        activeUnderlineColor={colors.primary}
+        contentStyle={{ paddingHorizontal: 0 }}
+        theme={{ colors: { background: 'transparent' } }}
       />
-      
-      <Text style={styles.label}>Contact Email</Text>
+
       <TextInput
-        style={styles.input}
+        label="Contact Email"
         value={contactEmail}
         onChangeText={setContactEmail}
-        placeholder="Contact email address (optional)"
-        placeholderTextColor={COLORS.mediumGray}
-        keyboardType="email-address"
-      />
-      
-      <Text style={styles.label}>Phone Number</Text>
-      <TextInput
+        mode="flat"
         style={styles.input}
+        placeholder="Contact email address (optional)"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        underlineColor={colors.outline}
+        activeUnderlineColor={colors.primary}
+        contentStyle={{ paddingHorizontal: 0 }}
+        theme={{ colors: { background: 'transparent' } }}
+      />
+
+      <TextInput
+        label="Phone Number"
         value={phoneNumber}
         onChangeText={setPhoneNumber}
+        mode="flat"
+        style={styles.input}
         placeholder="Phone number (optional)"
-        placeholderTextColor={COLORS.mediumGray}
         keyboardType="phone-pad"
+        underlineColor={colors.outline}
+        activeUnderlineColor={colors.primary}
+        contentStyle={{ paddingHorizontal: 0 }}
+        theme={{ colors: { background: 'transparent' } }}
       />
-      
-      <TouchableOpacity 
-        style={[styles.button, isLoading && styles.buttonDisabled]} 
+
+      <Button
+        mode="contained"
         onPress={saveProfile}
+        loading={isLoading}
         disabled={isLoading}
+        style={[styles.button, { backgroundColor: colors.primary }]}
+        labelStyle={{ fontWeight: 'bold' }}
       >
-        {isLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>
-            {existingProfile ? 'Update Profile' : 'Create Profile'}
-          </Text>
-        )}
-      </TouchableOpacity>
+        {existingProfile ? 'Update Profile' : 'Create Profile'}
+      </Button>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    backgroundColor: COLORS.cardBackground,
-    margin: 16,
-    borderRadius: 8,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 5,
-    fontWeight: '500',
-    color: COLORS.white,
+    padding: 0,
+    margin: 0,
   },
   input: {
-    height: 40,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 1,
-    borderRadius: 5,
-    marginBottom: 15,
-    paddingHorizontal: 10,
-    color: COLORS.white,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-    paddingTop: 10,
+    marginBottom: 16,
+    backgroundColor: 'transparent',
   },
   button: {
-    backgroundColor: COLORS.brightOrange,
-    padding: 12,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonDisabled: {
-    backgroundColor: '#A9A9A9',
-  },
-  buttonText: {
-    color: COLORS.white,
-    fontWeight: 'bold',
-    fontSize: 16,
+    marginTop: 16,
+    borderRadius: 50,
+    height: 50,
+    justifyContent: 'center',
   },
 });
