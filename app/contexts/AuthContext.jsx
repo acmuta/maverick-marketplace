@@ -5,9 +5,9 @@ import { account } from '../../appwrite';
 const AuthContext = createContext({
   user: null,
   isLoading: true,
-  login: async () => {},
-  logout: async () => {},
-  refreshUser: async () => {},
+  login: async (email, password) => { },
+  logout: async () => { },
+  refreshUser: async () => { },
 });
 
 export const useAuth = () => {

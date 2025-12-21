@@ -1,168 +1,137 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { View, FlatList, Dimensions, StyleSheet, Pressable } from 'react-native';
+import { Card, Text, useTheme, IconButton } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function ListingGrid({ listing, isLoading, refreshing, onRefresh, onLoadMore, hasMore, loadingMore }){
-    const router = useRouter();
-  
-    const renderListingItem = ({ item }) => (
-      <TouchableOpacity
-        style={styles.listingCard}
+const { width } = Dimensions.get('window');
+const COLUMN_COUNT = 2;
+const GAP = 12;
+const ITEM_WIDTH = (width - (GAP * 3)) / COLUMN_COUNT; // Equal spacing logic
+
+export default function ListingGrid({ listing = [], isLoading, onRefresh, refreshing, onLoadMore, hasMore, loadingMore }) {
+  const router = useRouter();
+  const { colors } = useTheme();
+
+  const renderItem = ({ item }) => (
+    <View style={styles.itemContainer}>
+      <Pressable
+        style={[styles.card, { backgroundColor: colors.surface, borderRadius: 16 }]}
         onPress={() => router.push(`/listing/${item.$id}`)}
       >
         <View style={styles.imageContainer}>
-        {item.imageUrl ? (
-            <Image 
-                source={{ 
-                    uri: item.imageUrl
-                }}
-                style={{...styles.image, minWidth: 150, minHeight: 150}}
-                contentFit="cover"
-                cachePolicy="disk"
-                transition={300}
-                onError={(error) => {
-                  console.error("Image error:", error);
-                }}
-            />
-        ) : (
-            <View style={styles.placeholderImage}>
-                <Text style={styles.placeholderText}>No Image</Text>
-            </View>
-        )}
-        </View>
-        <View style={styles.infoContainer}>
-          <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-          <Text style={styles.price}>${item.price.toFixed(2)}</Text>
-          <Text style={styles.category} numberOfLines={1}>{item.category}</Text>
-        </View>
-      </TouchableOpacity>
-    );
-    
-    if (listing.length === 0 && !isLoading) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No listings found</Text>
-        </View>
-      );
-    }
-    
-    const renderFooter = () => {
-      if (!loadingMore) return null;
-      return (
-        <View style={styles.footerLoader}>
-          <Text style={styles.loadingMoreText}>Loading more...</Text>
-        </View>
-      );
-    };
-
-    return (
-      <FlatList
-        data={listing}
-        renderItem={renderListingItem}
-        keyExtractor={item => item.$id}
-        numColumns={2}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing || false}
-            onRefresh={onRefresh}
-            colors={['#FF8A00']}
-            tintColor="#FF8A00"
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={styles.image}
+            contentFit="cover"
+            transition={200}
           />
-        }
-        onEndReached={hasMore && !loadingMore ? onLoadMore : null}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-        style={styles.flatList}
-      />
-    );
+          {/* "New" Badge - Simulated logic (e.g. created within last 3 days) */}
+          {isNew(item.$createdAt) && (
+            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.badgeText}>NEW</Text>
+            </View>
+          )}
+          {/* Heart Icon Overlay */}
+          {/* <Pressable style={styles.heartBtn}>
+                <Ionicons name="heart-outline" size={16} color="white" />
+            </Pressable> */}
+        </View>
+
+        <View style={styles.infoContainer}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text variant="titleLarge" style={{ color: colors.primary, fontWeight: '800' }}>
+              ${item.price}
+            </Text>
+          </View>
+
+          <Text variant="bodyMedium" numberOfLines={1} style={{ fontWeight: '600', marginTop: 2, color: colors.onSurface }}>
+            {item.title}
+          </Text>
+
+          <Text variant="labelSmall" style={{ color: colors.secondary, marginTop: 4 }} numberOfLines={1}>
+            {item.category} • {item.condition}
+          </Text>
+        </View>
+      </Pressable>
+    </View>
+  );
+
+  const isNew = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 3;
+  };
+
+  return (
+    <FlatList
+      data={listing}
+      renderItem={renderItem}
+      keyExtractor={(item) => item.$id}
+      numColumns={COLUMN_COUNT}
+      contentContainerStyle={{ padding: GAP }}
+      columnWrapperStyle={{ gap: GAP }}
+      showsVerticalScrollIndicator={false}
+      onRefresh={onRefresh}
+      refreshing={refreshing}
+      onEndReached={onLoadMore}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={loadingMore && <View style={{ padding: 20 }}><Text style={{ textAlign: 'center', color: colors.secondary }}>Loading more...</Text></View>}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
-    flatList: {
-      backgroundColor: '#0A1929',
-    },
-    listContainer: {
-      padding: 8,
-    },
-    listingCard: {
-      flex: 1,
-      margin: 8,
-      backgroundColor: '#FFFFFF',
-      borderRadius: 10,
-      overflow: 'hidden',
-      elevation: 3,
-      shadowColor: '#0F2C5C',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 2,
-      maxWidth: '47%',
-      borderWidth: 1,
-      borderColor: '#E0E8F7',
-    },
-    imageContainer: {
-      height: 150,
-      width: '100%',
-      backgroundColor: '#E0E8F7',
-    },
-    image: {
-      width: '100%',
-      height: '100%',
-    },
-    placeholderImage: {
-      width: '100%',
-      height: '100%',
-      backgroundColor: '#E0E8F7',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    placeholderText: {
-      color: '#0F2C5C',
-      fontWeight: '500',
-    },
-    infoContainer: {
-      padding: 12,
-      backgroundColor: '#FFFFFF',
-    },
-    title: {
-      fontSize: 14,
-      fontWeight: '600',
-      marginBottom: 6,
-      color: '#0F2C5C',
-    },
-    price: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: '#FF8A00',
-      marginBottom: 6,
-    },
-    category: {
-      fontSize: 12,
-      color: '#5A7299',
-      fontWeight: '500',
-    },
-    emptyContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-      backgroundColor: '#F5F8FF',
-    },
-    emptyText: {
-      fontSize: 16,
-      color: '#0F2C5C',
-      textAlign: 'center',
-      fontWeight: '500',
-    },
-    footerLoader: {
-      paddingVertical: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    loadingMoreText: {
-      fontSize: 14,
-      color: '#FF8A00',
-      fontWeight: '500',
-    },
+  itemContainer: {
+    width: ITEM_WIDTH,
+    marginBottom: GAP,
+  },
+  card: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    // Subtle shadow (physics)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  imageContainer: {
+    width: '100%',
+    aspectRatio: 0.8, // 4:5 Portrait
+    position: 'relative',
+    backgroundColor: '#F3F4F6',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  infoContainer: {
+    padding: 12,
+  },
+  badge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 100,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  heartBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 20,
+    padding: 6,
+  }
 });

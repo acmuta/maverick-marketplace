@@ -1,24 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Text, ActivityIndicator, useTheme } from 'react-native-paper';
 import { databases, DATABASE_ID, LISTINGS_COLLECTION_ID } from '../../../appwrite';
 import ListingForm from '../../components/ListingForm';
 import { useAuth } from '../../contexts/AuthContext';
-
-const COLORS = {
-  darkBlue: '#0A1929',
-  mediumBlue: '#0F2942',
-  brightOrange: '#FF9800',
-  white: '#FFFFFF',
-  textPrimary: '#FFFFFF',
-  textSecondary: '#B0BEC5',
-  error: '#FF5252',
-};
 
 export default function EditListingScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { user: currentUser } = useAuth();
+  const { colors } = useTheme();
   const [listing, setListing] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -74,10 +66,10 @@ export default function EditListingScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={COLORS.brightOrange} />
-          <Text style={styles.loadingText}>Loading listing...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.secondary }]}>Loading listing...</Text>
         </View>
       </View>
     );
@@ -85,9 +77,9 @@ export default function EditListingScreen() {
 
   if (error) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.centerContent}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
       </View>
     );
@@ -103,7 +95,6 @@ export default function EditListingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.darkBlue,
   },
   centerContent: {
     flex: 1,
@@ -114,11 +105,9 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.textSecondary,
   },
   errorText: {
     fontSize: 16,
-    color: COLORS.error,
     textAlign: 'center',
   },
 });
