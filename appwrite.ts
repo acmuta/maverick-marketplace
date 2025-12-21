@@ -45,23 +45,24 @@ export const getImageUrl = (
   height: number = 300
 ): string => {
   const projectId = process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID;
+  const endpoint = process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT;
 
+  // Check for tunnel mode - use public URL if set
   if (
     process.env.EXPO_PUBLIC_APPWRITE_TUNNEL_MODE === 'true' &&
     process.env.EXPO_PUBLIC_APPWRITE_PUBLIC_URL
   ) {
-    return `<span class="math-inline">\{process\.env\.EXPO\_PUBLIC\_APPWRITE\_PUBLIC\_URL\}/v1/storage/buckets/</span>{bucketId}/files/<span class="math-inline">\{fileId\}/preview?width\=</span>{width}&height=<span class="math-inline">\{height\}&project\=</span>{projectId}`;
+    return `${process.env.EXPO_PUBLIC_APPWRITE_PUBLIC_URL}/v1/storage/buckets/${bucketId}/files/${fileId}/preview?width=${width}&height=${height}&project=${projectId}`;
   }
-  if (!storage || !bucketId || !fileId) {
-    console.warn('getImageUrl called with invalid params, returning placeholder or empty string.');
+
+  // Validate params
+  if (!bucketId || !fileId || !endpoint || !projectId) {
+    console.warn('getImageUrl: missing params', { bucketId, fileId, endpoint: !!endpoint, projectId: !!projectId });
     return '';
   }
-  try {
-    return storage.getFilePreview(bucketId, fileId, width, height).toString();
-  } catch (error) {
-    console.error("Error generating file preview URL:", error);
-    return '';
-  }
+
+  // Construct URL - endpoint already includes /v1, so just append the rest
+  return `${endpoint}/storage/buckets/${bucketId}/files/${fileId}/preview?width=${width}&height=${height}&project=${projectId}`;
 };
 
 export { client, account, databases, storage, Query, ID, Permission, Role };

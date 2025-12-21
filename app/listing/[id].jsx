@@ -6,7 +6,7 @@ import { Query } from 'react-native-appwrite';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Appbar, Text, Button, useTheme, IconButton, ActivityIndicator, Avatar, Divider, Surface } from 'react-native-paper';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { account, databases, storage, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, USERS_COLLECTION_ID, IMAGES_BUCKET_ID } from '../../appwrite';
+import { account, databases, storage, getImageUrl, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, USERS_COLLECTION_ID, IMAGES_BUCKET_ID } from '../../appwrite';
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -36,7 +36,7 @@ export default function ListingDetailScreen() {
       } catch (e) { setSeller({ displayName: 'Unknown' }); }
 
       const imgs = await databases.listDocuments(DATABASE_ID, IMAGES_COLLECTION_ID, [Query.equal('listingId', id), Query.orderAsc('order')]);
-      setImages(imgs.documents.map(img => ({ url: storage.getFileView(IMAGES_BUCKET_ID, img.fileId).toString(), id: img.$id })));
+      setImages(imgs.documents.map(img => ({ url: getImageUrl(IMAGES_BUCKET_ID, img.fileId, 800, 800), id: img.$id })));
     } catch (e) { Alert.alert('Error', 'Failed to load.'); router.back(); } finally { setIsLoading(false); }
   };
 
