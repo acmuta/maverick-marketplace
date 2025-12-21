@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { ID, Query } from 'react-native-appwrite';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { databases, storage, getImageUrl, DATABASE_ID, IMAGES_COLLECTION_ID, IMAGES_BUCKET_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
+import { databases, getImageUrl, DATABASE_ID, IMAGES_COLLECTION_ID, IMAGES_BUCKET_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
 import { useAuth } from '../contexts/AuthContext';
 import { TextInput, Button, Text, useTheme, HelperText, IconButton, Surface } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
@@ -45,7 +45,7 @@ export default function ListingForm({ existingListing = null, isEditMode = false
           onPress: async () => {
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') return Alert.alert('Permission needed', 'Camera access is required.');
-            let result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.5 });
+            let result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.5 });
             if (!result.canceled) setImages([...images, result.assets[0].uri]);
           }
         },
@@ -54,7 +54,7 @@ export default function ListingForm({ existingListing = null, isEditMode = false
           onPress: async () => {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') return Alert.alert('Permission needed', 'Gallery access is required.');
-            let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.5 });
+            let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.5 });
             if (!result.canceled) setImages([...images, result.assets[0].uri]);
           }
         }
@@ -82,59 +82,57 @@ export default function ListingForm({ existingListing = null, isEditMode = false
     setIsSubmitting(true);
 
     try {
-      // 1. Upload new images
+      // 1. Upload new images using direct fetch to Appwrite REST API
       const uploadedImageIds = [];
       for (const uri of images) {
+        const fileId = ID.unique();
+        const fileName = uri.split('/').pop() || `listing_${Date.now()}.jpg`;
+
         const formData = new FormData();
+        formData.append('fileId', fileId);
         formData.append('file', {
           uri: uri,
-          name: `listing_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`,
+          name: fileName,
           type: 'image/jpeg',
         });
 
-        const response = await ID.unique(); // Generate ID client-side or let Appwrite do it? Storage usually needs 'unique()'
-        // React Native Appwrite Storage createTextField wants a file object, but in RN we might need to rely on the SDK handling it or use a specific format.
-        // Standard Appwrite RN SDK usage:
-        // Infer MIME type
-        const filename = uri.split('/').pop();
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        console.log('Attempting upload:', { bucket: IMAGES_BUCKET_ID, uri: uri, fileId: fileId });
 
-        const file = {
-          name: filename,
-          type: type,
-          uri: uri,
-        };
-        console.log('Attempting upload:', { bucket: IMAGES_BUCKET_ID, uri: uri });
+        const endpoint = `${process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${IMAGES_BUCKET_ID}/files`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'X-Appwrite-Project': process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
+          },
+          body: formData,
+        });
 
-        // Ensure storage is valid
-        if (!storage) throw new Error("Storage instance is missing");
-
-        const upload = await storage.createFile(IMAGES_BUCKET_ID, ID.unique(), file);
-        console.log('Upload response:', upload);
-
-        if (!upload) {
-          throw new Error(`Upload failed (returned ${upload}). Check Appwrite configuration and logs.`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Upload failed:', response.status, errorText);
+          throw new Error(`Upload failed: HTTP ${response.status}`);
         }
 
-        uploadedImageIds.push(upload.$id);
+        const fileData = await response.json();
+        console.log('Upload response:', fileData);
+
+        uploadedImageIds.push(fileData.$id || fileId);
       }
 
       const allImageIds = [...existingImages, ...uploadedImageIds];
-      const mainImageId = allImageIds.length > 0 ? allImageIds[0] : null;
+      const primaryImageFileId = allImageIds.length > 0 ? allImageIds[0] : null;
 
       // 2. Create or Update Listing Document
       const payload = {
-        userId: currentUser.$id,
-        title,
-        description,
+        title: title.trim(),
+        description: description.trim(),
         price: parseFloat(price),
-        category,
-        condition,
-        images: allImageIds,
-        mainImage: mainImageId,
-        sellerName: currentUser.name,
-        updatedAt: new Date().toISOString(),
+        category: category.trim(),
+        condition: condition.trim(),
+        location: '',
+        userId: currentUser.$id,
+        status: 'active',
+        ...(primaryImageFileId && { primaryImageFileId }),
       };
 
       if (isEditMode && existingListing) {
