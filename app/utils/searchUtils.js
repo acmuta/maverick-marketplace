@@ -133,38 +133,24 @@ export const searchListings = async ({
       LISTINGS_COLLECTION_ID,
       searchQueries
     );
-    
-    // Process results to add images
-    const resultsWithImages = await Promise.all(
-      response.documents.map(async (listing) => {
-        try {
-          const imagesResponse = await databases.listDocuments(
-            DATABASE_ID,
-            IMAGES_COLLECTION_ID,
-            [
-              Query.equal('listingId', listing.$id),
-              Query.orderAsc('order'),
-              Query.limit(1)
-            ]
-          );
 
-          if (imagesResponse.documents.length > 0) {
-            const fileId = imagesResponse.documents[0].fileId;
-            try {
-              const imageUrl = getImageUrl(IMAGES_BUCKET_ID, fileId, 400, 300);
-              listing.imageUrl = imageUrl;
-            } catch (imgError) {
-              console.error(`Error getting file view:`, imgError);
-            }
-          }
-          return listing;
-        } catch (listingError) {
-          console.error(`Error fetching images:`, listingError);
-          return listing;
-        }
-      })
-    );
-    
+    // NO SEPARATE IMAGE QUERIES NEEDED! Use primaryImageFileId directly
+    const resultsWithImages = response.documents.map((listing) => {
+      if (listing.primaryImageFileId) {
+        // Generate image URL directly from primaryImageFileId
+        listing.imageUrl = getImageUrl(
+          IMAGES_BUCKET_ID,
+          listing.primaryImageFileId,
+          400,
+          300
+        );
+      }
+      return listing;
+    });
+
+    console.log(`Search returned ${resultsWithImages.length} listings with 1 API call (optimized)`);
+
+
     // Save search term if it's valid
     if (query && query.trim() !== '') {
       await saveSearchTerm(query);
