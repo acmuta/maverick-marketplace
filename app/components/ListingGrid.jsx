@@ -1,87 +1,85 @@
 import React from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Dimensions } from 'react-native';
+import { View, FlatList, Dimensions, StyleSheet, Pressable } from 'react-native';
+import { Card, Text, useTheme, IconButton } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Card, Text, useTheme, ActivityIndicator, TouchableRipple } from 'react-native-paper';
-import { Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
-const GAP = 1; // Tight gap
-const COLUMNS = 2;
-const ITEM_WIDTH = (width - (GAP * (COLUMNS - 1))) / COLUMNS;
+const COLUMN_COUNT = 2;
+const GAP = 12;
+const ITEM_WIDTH = (width - (GAP * 3)) / COLUMN_COUNT; // Equal spacing logic
 
-export default function ListingGrid({ listing, isLoading, refreshing, onRefresh, onLoadMore, hasMore, loadingMore }) {
+export default function ListingGrid({ listing = [], isLoading, onRefresh, refreshing, onLoadMore, hasMore, loadingMore }) {
   const router = useRouter();
-  const { colors, roundness } = useTheme();
+  const { colors } = useTheme();
 
-  const renderListingItem = ({ item }) => (
-    <TouchableRipple
-      onPress={() => router.push(`/listing/${item.$id}`)}
-      style={[styles.itemContainer, { borderColor: colors.outline }]}
-      rippleColor="rgba(0, 0, 0, 0.1)"
-    >
-      <View>
-        {/* Aspect Ratio 1:1 for main grid */}
-        <View style={{ width: '100%', aspectRatio: 1, backgroundColor: colors.secondaryContainer }}>
+  const renderItem = ({ item }) => (
+    <View style={styles.itemContainer}>
+      <Pressable
+        style={[styles.card, { backgroundColor: colors.surface, borderRadius: 16 }]}
+        onPress={() => router.push(`/listing/${item.$id}`)}
+      >
+        <View style={styles.imageContainer}>
           <Image
             source={{ uri: item.imageUrl }}
-            style={{ flex: 1 }}
+            style={styles.image}
             contentFit="cover"
             transition={200}
           />
+          {/* "New" Badge - Simulated logic (e.g. created within last 3 days) */}
+          {isNew(item.$createdAt) && (
+            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.badgeText}>NEW</Text>
+            </View>
+          )}
+          {/* Heart Icon Overlay */}
+          {/* <Pressable style={styles.heartBtn}>
+                <Ionicons name="heart-outline" size={16} color="white" />
+            </Pressable> */}
         </View>
 
         <View style={styles.infoContainer}>
-          <View style={styles.row}>
-            <Text variant="titleMedium" style={{ fontWeight: '900', flex: 1 }}>${item.price.toFixed(0)}</Text>
-            <Feather name="heart" size={16} color={colors.onSurface} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text variant="titleLarge" style={{ color: colors.primary, fontWeight: '800' }}>
+              ${item.price}
+            </Text>
           </View>
-          <Text variant="bodyMedium" numberOfLines={1} style={{ marginTop: 2 }}>{item.title}</Text>
-          <Text variant="labelSmall" style={{ color: colors.secondary, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 }} numberOfLines={1}>
-            {item.category} • {item.condition || 'Used'}
+
+          <Text variant="bodyMedium" numberOfLines={1} style={{ fontWeight: '600', marginTop: 2, color: colors.onSurface }}>
+            {item.title}
+          </Text>
+
+          <Text variant="labelSmall" style={{ color: colors.secondary, marginTop: 4 }} numberOfLines={1}>
+            {item.category} • {item.condition}
           </Text>
         </View>
-      </View>
-    </TouchableRipple>
+      </Pressable>
+    </View>
   );
 
-  if (listing.length === 0 && !isLoading) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text variant="bodyLarge" style={{ color: colors.secondary }}>No listings found</Text>
-      </View>
-    );
-  }
-
-  const renderFooter = () => {
-    if (!loadingMore) return null;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator animating={true} color={colors.primary} size="small" />
-      </View>
-    );
+  const isNew = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 3;
   };
 
   return (
     <FlatList
       data={listing}
-      renderItem={renderListingItem}
-      keyExtractor={item => item.$id}
-      numColumns={COLUMNS}
+      renderItem={renderItem}
+      keyExtractor={(item) => item.$id}
+      numColumns={COLUMN_COUNT}
+      contentContainerStyle={{ padding: GAP }}
       columnWrapperStyle={{ gap: GAP }}
-      contentContainerStyle={{ gap: GAP, paddingBottom: 20 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing || false}
-          onRefresh={onRefresh}
-          colors={[colors.primary]}
-          tintColor={colors.primary}
-        />
-      }
-      onEndReached={hasMore && !loadingMore ? onLoadMore : null}
+      showsVerticalScrollIndicator={false}
+      onRefresh={onRefresh}
+      refreshing={refreshing}
+      onEndReached={onLoadMore}
       onEndReachedThreshold={0.5}
-      ListFooterComponent={renderFooter}
-      style={{ backgroundColor: colors.background }}
+      ListFooterComponent={loadingMore && <View style={{ padding: 20 }}><Text style={{ textAlign: 'center', color: colors.secondary }}>Loading more...</Text></View>}
     />
   );
 }
@@ -89,29 +87,51 @@ export default function ListingGrid({ listing, isLoading, refreshing, onRefresh,
 const styles = StyleSheet.create({
   itemContainer: {
     width: ITEM_WIDTH,
-    borderRightWidth: 0.5, // Simulate grid lines
-    borderBottomWidth: 1,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    marginBottom: GAP,
+  },
+  card: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    // Subtle shadow (physics)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  imageContainer: {
+    width: '100%',
+    aspectRatio: 0.8, // 4:5 Portrait
+    position: 'relative',
+    backgroundColor: '#F3F4F6',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
   infoContainer: {
+    padding: 12,
+  },
+  badge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
     paddingHorizontal: 8,
-    paddingTop: 8,
+    paddingVertical: 4,
+    borderRadius: 100,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 50,
-  },
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  heartBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 20,
+    padding: 6,
+  }
 });

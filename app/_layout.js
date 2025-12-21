@@ -1,8 +1,9 @@
+import 'react-native-url-polyfill/auto';
 import { Stack } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { AuthProvider } from './contexts/AuthContext';
 import { ChatProvider } from './contexts/ChatContext';
-import { theme } from './theme-config'; // Updated import
+import { theme } from './_constants/theme'; // Updated import
 
 export default function RootLayout() {
   return (

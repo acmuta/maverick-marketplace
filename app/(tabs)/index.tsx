@@ -108,19 +108,33 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      {/* Minimal Header */}
-      <Appbar.Header style={{ backgroundColor: colors.background, elevation: 0, height: 50, borderBottomWidth: 1, borderBottomColor: colors.outline }}>
+      {/* Anti-Sting Header */}
+      <Appbar.Header style={{ backgroundColor: colors.background, elevation: 0, height: 60 }}>
         <Appbar.Content
           title="CampusMarket"
           titleStyle={{
-            color: colors.primary,
-            fontWeight: '900',
-            fontSize: 20,
-            letterSpacing: -0.5
+            color: colors.primary, // Indigo
+            fontWeight: '800',
+            fontSize: 24,
+            letterSpacing: -0.5,
           }}
         />
-        <IconButton icon="magnify" iconColor={colors.primary} onPress={() => router.push('/search')} />
-        <IconButton icon="filter-variant" iconColor={colors.primary} onPress={() => { }} />
+        <IconButton
+          icon="magnify"
+          iconColor={colors.onBackground}
+          containerColor="white"
+          size={24}
+          style={{ borderRadius: 12 }} // Soft rect
+          onPress={() => router.push('/search')}
+        />
+        <IconButton
+          icon="filter-variant"
+          iconColor={colors.onBackground}
+          containerColor="white"
+          size={24}
+          style={{ borderRadius: 12 }}
+          onPress={() => { }}
+        />
       </Appbar.Header>
 
       <View style={styles.mainContent}>
@@ -130,7 +144,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           <ListingGrid
-            listing={listings}
+            listing={listings as any}
             isLoading={isLoading}
             refreshing={refreshing}
             onRefresh={onRefresh}

@@ -1,4 +1,5 @@
-import { Client, Account, Databases, Storage } from 'react-native-appwrite';
+import 'react-native-url-polyfill/auto';
+import { Client, Account, Databases, Storage, Query, ID, Permission, Role } from 'react-native-appwrite';
 import { Platform } from 'react-native';
 
 const appwriteEndpoint = process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT;
@@ -6,10 +7,10 @@ const appwriteProjectId = process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID;
 const appwritePlatform = process.env.EXPO_PUBLIC_APPWRITE_PLATFORM;
 
 if (!appwriteEndpoint) {
-    console.error("Appwrite endpoint is not set. Check EXPO_PUBLIC_APPWRITE_ENDPOINT in .env");
+  console.error("Appwrite endpoint is not set. Check EXPO_PUBLIC_APPWRITE_ENDPOINT in .env");
 }
 if (!appwriteProjectId) {
-    console.error("Appwrite project ID is not set. Check EXPO_PUBLIC_APPWRITE_PROJECT_ID in .env");
+  console.error("Appwrite project ID is not set. Check EXPO_PUBLIC_APPWRITE_PROJECT_ID in .env");
 }
 
 
@@ -63,4 +64,4 @@ export const getImageUrl = (
   }
 };
 
-export { client, account, databases, storage };
+export { client, account, databases, storage, Query, ID, Permission, Role };

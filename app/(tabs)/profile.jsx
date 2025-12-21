@@ -1,170 +1,143 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
-import { Query } from 'react-native-appwrite';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { View, ScrollView, RefreshControl, StyleSheet, Alert, StatusBar } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Button, Text, ActivityIndicator, Divider, useTheme, Avatar, IconButton, Surface } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { databases, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
-import UserProfileForm from '../components/UserProfileForm';
 import { useAuth } from '../contexts/AuthContext';
-import { Text, useTheme, Avatar, Button, Divider, ActivityIndicator, IconButton, Surface } from 'react-native-paper';
-import { Feather } from '@expo/vector-icons';
+import { databases, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID, Query } from '../../appwrite';
+import UserProfileForm from '../components/UserProfileForm';
+import { Feather, Ionicons } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
-  const { user, logout: authLogout } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [myListings, setMyListings] = useState([]);
-  const [isLoadingData, setIsLoadingData] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
+  const [isEditing, setIsEditing] = useState(false);
+  const [myListings, setMyListings] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
+    if (user) loadMyListings();
+  }, [user]);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchUserData();
-    }, [])
-  );
-
-  const fetchUserData = async () => {
-    if (!user) return;
-
-    setIsLoadingData(true);
+  const loadMyListings = async () => {
     try {
-      try {
-        const userProfile = await databases.getDocument(DATABASE_ID, USERS_COLLECTION_ID, user.$id);
-        setProfile(userProfile);
-      } catch (profileError) {
-        if (profileError.code === 404) {
-          try {
-            const newProfile = await databases.createDocument(
-              DATABASE_ID, USERS_COLLECTION_ID, user.$id,
-              {
-                displayName: user.name || 'New User',
-                bio: '', avatarUrl: '', contactEmail: user.email || '', phoneNumber: '',
-                createdAt: new Date().toISOString(),
-              }
-            );
-            setProfile(newProfile);
-          } catch (e) { console.error(e); }
-        }
-      }
-
-      const listingsResponse = await databases.listDocuments(
-        DATABASE_ID, LISTINGS_COLLECTION_ID,
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        LISTINGS_COLLECTION_ID,
         [Query.equal('userId', user.$id), Query.orderDesc('createdAt')]
       );
-      setMyListings(listingsResponse.documents);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoadingData(false);
+      setMyListings(response.documents);
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await authLogout();
-      setProfile(null);
-      setMyListings([]);
-      router.push('/login');
-    } catch (error) { console.error(error); }
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshUser();
+    await loadMyListings();
+    setRefreshing(false);
   };
 
-  const profileSaved = () => {
-    setIsEditing(false);
-    fetchUserData();
+  const handleLogout = async () => {
+    Alert.alert('Log Out', 'Are you sure?', [
+      { text: 'Cancel' },
+      { text: 'Log Out', onPress: async () => { await logout(); router.replace('/login'); } }
+    ])
   };
 
   if (!user) {
     return (
-      <View style={[styles.containerCenter, { backgroundColor: colors.background }]}>
-        <Button mode="contained" onPress={() => router.push('/login')}>Log In</Button>
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <Text variant="titleLarge">Please log in</Text>
+        <Button mode="contained" onPress={() => router.push('/login')} style={{ marginTop: 16 }}>Log In</Button>
       </View>
-    );
+    )
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" />
 
-      {/* Minimal Header */}
-      <View style={[styles.header, { borderBottomColor: colors.outline }]}>
-        <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>My Profile</Text>
-        <Button mode="text" onPress={handleLogout} textColor={colors.error}>Logout</Button>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
+        <Text variant="headlineSmall" style={{ fontWeight: '800', color: colors.onBackground }}>Profile</Text>
+        <IconButton icon="logout" iconColor={colors.error} size={20} onPress={handleLogout} />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        {isEditing ? (
-          <View style={{ padding: 16 }}>
-            <UserProfileForm existingProfile={profile} onProfileSaved={profileSaved} />
-            <Button mode="outlined" style={{ marginTop: 10 }} onPress={() => setIsEditing(false)}>Cancel</Button>
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}>
+
+        {/* Profile Card */}
+        <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+          <View style={{ elevation: 4, shadowColor: colors.primary, shadowOpacity: 0.2, shadowRadius: 10, backgroundColor: 'white', borderRadius: 50 }}>
+            <Avatar.Text
+              size={100}
+              label={user.displayName?.charAt(0).toUpperCase() || 'U'}
+              style={{ backgroundColor: colors.primaryContainer }}
+              color={colors.primary}
+              labelStyle={{ fontSize: 40, fontWeight: 'bold' }}
+            />
           </View>
-        ) : (
-          <>
-            <View style={styles.profileHeader}>
-              <View>
-                <Avatar.Text size={80} label={(profile?.displayName || user.name).charAt(0).toUpperCase()} style={{ backgroundColor: colors.secondaryContainer }} color={colors.primary} />
-                {/* Simulated .edu verification badge */}
-                {user.email.endsWith('.edu') && (
-                  <View style={[styles.badge, { backgroundColor: '#22c55e', borderColor: colors.background }]}>
-                    <Feather name="check" size={12} color="white" />
-                  </View>
-                )}
-              </View>
-              <View style={{ marginTop: 16, alignItems: 'center' }}>
-                <Text variant="headlineMedium" style={{ fontWeight: 'bold' }}>{profile?.displayName || user.name}</Text>
-                <Text variant="bodyMedium" style={{ color: colors.secondary }}>{user.email}</Text>
-              </View>
+          <Text variant="headlineSmall" style={{ fontWeight: 'bold', marginTop: 16 }}>{user.displayName}</Text>
+          <Text variant="bodyMedium" style={{ color: colors.secondary }}>{user.email}</Text>
 
-              <Button
-                mode="outlined"
-                style={{ marginTop: 16, borderColor: colors.outline, width: 150 }}
-                textColor={colors.primary}
-                onPress={() => setIsEditing(true)}
-              >
-                Edit Profile
-              </Button>
-            </View>
+          {/* Simulated Verified Badge */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, backgroundColor: '#DCFCE7', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}>
+            <Ionicons name="checkmark-circle" size={16} color="#166534" />
+            <Text style={{ color: '#166534', fontWeight: 'bold', marginLeft: 4, fontSize: 12 }}>Verified Student</Text>
+          </View>
 
-            {profile?.bio ? (
-              <View style={[styles.section, { borderTopColor: colors.outline }]}>
-                <Text variant="bodyLarge">{profile.bio}</Text>
-              </View>
-            ) : null}
+          <Button
+            mode="text"
+            onPress={() => setIsEditing(!isEditing)}
+            textColor={colors.primary}
+            style={{ marginTop: 8 }}
+          >
+            {isEditing ? 'Cancel Editing' : 'Edit Profile'}
+          </Button>
+        </View>
 
-            <View style={[styles.section, { borderTopColor: colors.outline }]}>
-              <Text variant="titleMedium" style={{ fontWeight: '900', marginBottom: 16 }}>My Listings</Text>
-              {myListings.map((listing) => (
-                <TouchableOpacity key={listing.$id} onPress={() => router.push(`/listing/${listing.$id}`)} style={[styles.listingRow, { borderBottomColor: colors.outline }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text variant="bodyLarge" style={{ fontWeight: '600' }}>{listing.title}</Text>
-                    <Text variant="bodySmall" style={{ color: listing.status === 'active' ? '#22c55e' : colors.error }}>{listing.status.toUpperCase()}</Text>
-                  </View>
-                  <Text variant="bodyLarge" style={{ fontWeight: 'bold' }}>${listing.price.toFixed(0)}</Text>
-                  <Feather name="chevron-right" size={20} color={colors.secondary} />
-                </TouchableOpacity>
-              ))}
-              {myListings.length === 0 && (
-                <Text variant="bodyMedium" style={{ color: colors.secondary, fontStyle: 'italic', textAlign: 'center', padding: 20 }}>No listings yet.</Text>
+        <View style={{ padding: 16 }}>
+          {isEditing ? (
+            <Surface style={{ padding: 16, borderRadius: 16, backgroundColor: 'white', elevation: 1 }}>
+              <UserProfileForm existingProfile={user} onProfileSaved={() => { setIsEditing(false); handleRefresh(); }} />
+            </Surface>
+          ) : (
+            <View>
+              <Text variant="titleMedium" style={{ fontWeight: 'bold', marginBottom: 12, marginLeft: 4 }}>My Listings</Text>
+              {myListings.length === 0 ? (
+                <Surface style={{ padding: 24, borderRadius: 16, alignItems: 'center', backgroundColor: 'white' }}>
+                  <Text style={{ color: colors.secondary }}>No listings yet.</Text>
+                </Surface>
+              ) : (
+                myListings.map(item => (
+                  <Surface key={item.$id} style={{ marginBottom: 12, borderRadius: 16, backgroundColor: 'white', elevation: 1 }} onPress={() => router.push(`/listing/${item.$id}`)}>
+                    <View style={{ flexDirection: 'row', padding: 12, alignItems: 'center' }}>
+                      <View style={{ width: 50, height: 50, backgroundColor: colors.secondaryContainer, borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}>
+                        <Feather name="image" size={24} color={colors.secondary} />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text variant="titleMedium" style={{ fontWeight: '600' }} numberOfLines={1}>{item.title}</Text>
+                        <Text style={{ color: item.status === 'active' ? '#166534' : colors.secondary, fontWeight: 'bold', fontSize: 12 }}>
+                          {item.status.toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>${item.price}</Text>
+                    </View>
+                  </Surface>
+                ))
               )}
             </View>
-          </>
-        )}
+          )}
+        </View>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  containerCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
-  profileHeader: { alignItems: 'center', padding: 32 },
-  badge: { position: 'absolute', bottom: 0, right: 0, padding: 4, borderRadius: 10, borderWidth: 2 },
-  section: { padding: 20, borderTopWidth: 1 },
-  listingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, gap: 10 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }
 });

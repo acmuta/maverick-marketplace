@@ -3,35 +3,19 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from 'react-native-paper';
 
-import SearchBar from './components/SearchBar';
-import ListingGrid from './components/ListingGrid';
-import SearchFilters from './components/SearchFilters';
-import * as SearchUtils from './utils/searchUtils';
-
-// Define consistent theme colors - matching the home page
-const COLORS = {
-  darkBlue: '#0A1929',
-  mediumBlue: '#0F2942',
-  lightBlue: '#1565C0',
-  orange: '#FF6F00', 
-  brightOrange: '#FF9800',
-  white: '#FFFFFF',
-  lightGray: '#F5F7FA',
-  mediumGray: '#B0BEC5',
-  darkGray: '#546E7A',
-  error: '#FF5252',
-  background: '#0A1929',
-  cardBackground: '#0F2942',
-  textPrimary: '#FFFFFF',
-  textSecondary: '#B0BEC5',
-};
+import SearchBar from '../components/SearchBar';
+import ListingGrid from '../components/ListingGrid';
+import SearchFilters from '../components/SearchFilters';
+import * as SearchUtils from '../utils/searchUtils';
 
 export default function SearchScreen() {
   const { query } = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
+  const { colors } = useTheme();
+
   const [searchQuery, setSearchQuery] = useState(query || '');
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState([]);
@@ -39,7 +23,7 @@ export default function SearchScreen() {
   const [conditions, setConditions] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
   const [filtersVisible, setFiltersVisible] = useState(false);
-  
+
   // Active filters
   const [activeFilters, setActiveFilters] = useState({
     category: 'All',
@@ -48,7 +32,7 @@ export default function SearchScreen() {
     condition: 'All',
     sortBy: 'recent'
   });
-  
+
   // Load recent searches from AsyncStorage on first render
   useEffect(() => {
     const fetchRecentSearches = async () => {
@@ -59,15 +43,14 @@ export default function SearchScreen() {
         console.error('Error loading recent searches:', error);
       }
     };
-    
+
     fetchRecentSearches();
   }, []);
-  
+
   // Load categories and conditions on first render
   useEffect(() => {
     const loadFilterOptions = async () => {
       try {
-        // For now, we'll use hard-coded values matching your existing categories
         setCategories([
           'Electronics',
           'Textbooks',
@@ -78,7 +61,7 @@ export default function SearchScreen() {
           'School Supplies',
           'Other'
         ]);
-        
+
         setConditions([
           'New',
           'Like New',
@@ -90,25 +73,24 @@ export default function SearchScreen() {
         console.error('Error loading filter options:', error);
       }
     };
-    
+
     loadFilterOptions();
   }, []);
-  
+
   // Execute search when query or filters change
   useEffect(() => {
-    if (searchQuery || activeFilters.category !== 'All' || 
-        activeFilters.condition !== 'All' || 
-        activeFilters.minPrice !== null || 
-        activeFilters.maxPrice !== null) {
+    if (searchQuery || activeFilters.category !== 'All' ||
+      activeFilters.condition !== 'All' ||
+      activeFilters.minPrice !== null ||
+      activeFilters.maxPrice !== null) {
       performSearch();
     }
   }, [searchQuery, activeFilters]);
-  
+
   const performSearch = async () => {
     setIsLoading(true);
-    
+
     try {
-      // Use our searchUtils function
       const searchResults = await SearchUtils.searchListings({
         query: searchQuery,
         category: activeFilters.category,
@@ -117,11 +99,9 @@ export default function SearchScreen() {
         condition: activeFilters.condition,
         sortBy: activeFilters.sortBy
       });
-      
-      // Process results
+
       setResults(searchResults);
-      
-      // Update recent searches
+
       if (searchQuery.trim() !== '') {
         const updatedSearches = await SearchUtils.saveSearchTerm(searchQuery);
         if (updatedSearches) {
@@ -134,31 +114,28 @@ export default function SearchScreen() {
       setIsLoading(false);
     }
   };
-  
+
   const handleSearch = (query) => {
     setSearchQuery(query);
   };
-  
+
   const handleCategorySelect = (category) => {
-    setActiveFilters(prev => ({
-      ...prev,
-      category
-    }));
+    setActiveFilters(prev => ({ ...prev, category }));
   };
-  
+
   const handleRecentSearchSelect = (term) => {
     setSearchQuery(term);
   };
-  
+
   const handleClearRecentSearches = async () => {
     await SearchUtils.clearRecentSearches();
     setRecentSearches([]);
   };
-  
+
   const handleApplyFilters = (newFilters) => {
     setActiveFilters(newFilters);
   };
-  
+
   const handleClearFilters = () => {
     setActiveFilters({
       category: 'All',
@@ -168,40 +145,39 @@ export default function SearchScreen() {
       sortBy: 'recent'
     });
   };
-  
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.darkBlue} />
-      
-      <Stack.Screen 
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+
+      <Stack.Screen
         options={{
-          title: "Search",
           headerShown: false,
         }}
       />
-      
+
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.outline }]}>
+        <TouchableOpacity
+          style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        
+
         <View style={styles.searchBarContainer}>
-          <SearchBar 
-            onSearch={handleSearch} 
-            initialValue={searchQuery} 
+          <SearchBar
+            onSearch={handleSearch}
+            initialValue={searchQuery}
             inlineStyle={true}
           />
         </View>
       </View>
-      
+
       {/* Filter Bar */}
-      <View style={styles.filterBar}>
-        <ScrollView 
-          horizontal 
+      <View style={[styles.filterBar, { backgroundColor: colors.background, borderBottomColor: colors.outline }]}>
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterBarContent}
         >
@@ -209,180 +185,185 @@ export default function SearchScreen() {
           <TouchableOpacity
             style={[
               styles.filterChip,
-              activeFilters.category !== 'All' && styles.filterChipActive
+              { borderColor: colors.outline, backgroundColor: colors.surface },
+              activeFilters.category !== 'All' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary }
             ]}
-            onPress={() => {
-              // Toggle category dropdown or similar
-              setFiltersVisible(true);
-            }}
+            onPress={() => setFiltersVisible(true)}
           >
-            <Ionicons 
-              name="apps-outline" 
-              size={18} 
-              color={activeFilters.category !== 'All' ? COLORS.brightOrange : COLORS.mediumGray} 
+            <Ionicons
+              name="apps-outline"
+              size={18}
+              color={activeFilters.category !== 'All' ? colors.primary : colors.secondary}
               style={styles.filterIcon}
             />
-            <Text 
+            <Text
               style={[
                 styles.filterText,
-                activeFilters.category !== 'All' && styles.filterTextActive
+                { color: colors.onSurface },
+                activeFilters.category !== 'All' && { color: colors.primary, fontWeight: '600' }
               ]}
             >
               {activeFilters.category === 'All' ? 'Category' : activeFilters.category}
             </Text>
           </TouchableOpacity>
-          
+
           {/* Price Filter */}
           <TouchableOpacity
             style={[
               styles.filterChip,
-              (activeFilters.minPrice !== null || activeFilters.maxPrice !== null) && styles.filterChipActive
+              { borderColor: colors.outline, backgroundColor: colors.surface },
+              (activeFilters.minPrice !== null || activeFilters.maxPrice !== null) && { backgroundColor: colors.primaryContainer, borderColor: colors.primary }
             ]}
             onPress={() => setFiltersVisible(true)}
           >
-            <Ionicons 
-              name="cash-outline" 
-              size={18} 
-              color={(activeFilters.minPrice !== null || activeFilters.maxPrice !== null) ? COLORS.brightOrange : COLORS.mediumGray} 
+            <Ionicons
+              name="cash-outline"
+              size={18}
+              color={(activeFilters.minPrice !== null || activeFilters.maxPrice !== null) ? colors.primary : colors.secondary}
               style={styles.filterIcon}
             />
-            <Text 
+            <Text
               style={[
                 styles.filterText,
-                (activeFilters.minPrice !== null || activeFilters.maxPrice !== null) && styles.filterTextActive
+                { color: colors.onSurface },
+                (activeFilters.minPrice !== null || activeFilters.maxPrice !== null) && { color: colors.primary, fontWeight: '600' }
               ]}
             >
-              {(activeFilters.minPrice !== null || activeFilters.maxPrice !== null) 
-                ? `$${activeFilters.minPrice || 0} - $${activeFilters.maxPrice || '∞'}` 
+              {(activeFilters.minPrice !== null || activeFilters.maxPrice !== null)
+                ? `$${activeFilters.minPrice || 0} - $${activeFilters.maxPrice || '∞'}`
                 : 'Price'}
             </Text>
           </TouchableOpacity>
-          
+
           {/* Condition Filter */}
           <TouchableOpacity
             style={[
               styles.filterChip,
-              activeFilters.condition !== 'All' && styles.filterChipActive
+              { borderColor: colors.outline, backgroundColor: colors.surface },
+              activeFilters.condition !== 'All' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary }
             ]}
             onPress={() => setFiltersVisible(true)}
           >
-            <Ionicons 
-              name="star-outline" 
-              size={18} 
-              color={activeFilters.condition !== 'All' ? COLORS.brightOrange : COLORS.mediumGray} 
+            <Ionicons
+              name="star-outline"
+              size={18}
+              color={activeFilters.condition !== 'All' ? colors.primary : colors.secondary}
               style={styles.filterIcon}
             />
-            <Text 
+            <Text
               style={[
                 styles.filterText,
-                activeFilters.condition !== 'All' && styles.filterTextActive
+                { color: colors.onSurface },
+                activeFilters.condition !== 'All' && { color: colors.primary, fontWeight: '600' }
               ]}
             >
               {activeFilters.condition === 'All' ? 'Condition' : activeFilters.condition}
             </Text>
           </TouchableOpacity>
-          
+
           {/* Sort Filter */}
           <TouchableOpacity
             style={[
               styles.filterChip,
-              activeFilters.sortBy !== 'recent' && styles.filterChipActive
+              { borderColor: colors.outline, backgroundColor: colors.surface },
+              activeFilters.sortBy !== 'recent' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary }
             ]}
             onPress={() => setFiltersVisible(true)}
           >
-            <Ionicons 
-              name="options-outline" 
-              size={18} 
-              color={activeFilters.sortBy !== 'recent' ? COLORS.brightOrange : COLORS.mediumGray} 
+            <Ionicons
+              name="options-outline"
+              size={18}
+              color={activeFilters.sortBy !== 'recent' ? colors.primary : colors.secondary}
               style={styles.filterIcon}
             />
-            <Text 
+            <Text
               style={[
                 styles.filterText,
-                activeFilters.sortBy !== 'recent' && styles.filterTextActive
+                { color: colors.onSurface },
+                activeFilters.sortBy !== 'recent' && { color: colors.primary, fontWeight: '600' }
               ]}
             >
-              {activeFilters.sortBy === 'recent' 
-                ? 'Sort' 
-                : activeFilters.sortBy === 'priceAsc' 
-                  ? 'Price: Low to High' 
+              {activeFilters.sortBy === 'recent'
+                ? 'Sort'
+                : activeFilters.sortBy === 'priceAsc'
+                  ? 'Price: Low to High'
                   : 'Price: High to Low'}
             </Text>
           </TouchableOpacity>
         </ScrollView>
-        
+
         {/* Show "All Filters" Button */}
-        <TouchableOpacity 
-          style={styles.allFiltersButton}
+        <TouchableOpacity
+          style={[styles.allFiltersButton, { backgroundColor: colors.primary }]}
           onPress={() => setFiltersVisible(true)}
         >
-          <Ionicons name="filter" size={18} color={COLORS.white} />
+          <Ionicons name="filter" size={18} color="white" />
         </TouchableOpacity>
       </View>
-      
+
       {/* Active Filters Summary */}
-      {(activeFilters.category !== 'All' || 
-        activeFilters.condition !== 'All' || 
-        activeFilters.minPrice !== null || 
+      {(activeFilters.category !== 'All' ||
+        activeFilters.condition !== 'All' ||
+        activeFilters.minPrice !== null ||
         activeFilters.maxPrice !== null ||
         activeFilters.sortBy !== 'recent') && (
-        <View style={styles.activeFiltersBar}>
-          <Text style={styles.activeFiltersText}>
-            Filtered by: {' '}
-            {activeFilters.category !== 'All' ? `${activeFilters.category}, ` : ''}
-            {activeFilters.condition !== 'All' ? `${activeFilters.condition}, ` : ''}
-            {(activeFilters.minPrice !== null || activeFilters.maxPrice !== null) 
-              ? `$${activeFilters.minPrice || 0} - $${activeFilters.maxPrice || '∞'}, ` 
-              : ''}
-            {activeFilters.sortBy !== 'recent' 
-              ? activeFilters.sortBy === 'priceAsc' 
-                ? 'Price: Low to High' 
-                : 'Price: High to Low' 
-              : ''}
-          </Text>
-          <TouchableOpacity onPress={handleClearFilters}>
-            <Text style={styles.clearFiltersText}>Clear All</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      
+          <View style={[styles.activeFiltersBar, { backgroundColor: colors.background, borderBottomColor: colors.outline }]}>
+            <Text style={[styles.activeFiltersText, { color: colors.secondary }]}>
+              Filtered by: {' '}
+              {activeFilters.category !== 'All' ? `${activeFilters.category}, ` : ''}
+              {activeFilters.condition !== 'All' ? `${activeFilters.condition}, ` : ''}
+              {(activeFilters.minPrice !== null || activeFilters.maxPrice !== null)
+                ? `$${activeFilters.minPrice || 0} - $${activeFilters.maxPrice || '∞'}, `
+                : ''}
+              {activeFilters.sortBy !== 'recent'
+                ? activeFilters.sortBy === 'priceAsc'
+                  ? 'Price: Low to High'
+                  : 'Price: High to Low'
+                : ''}
+            </Text>
+            <TouchableOpacity onPress={handleClearFilters}>
+              <Text style={[styles.clearFiltersText, { color: colors.primary }]}>Clear All</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
       {/* Main Content */}
       <View style={styles.content}>
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.brightOrange} />
-            <Text style={styles.loadingText}>Searching...</Text>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.secondary }]}>Searching...</Text>
           </View>
-        ) : searchQuery || 
-            activeFilters.category !== 'All' || 
-            activeFilters.condition !== 'All' || 
-            activeFilters.minPrice !== null || 
-            activeFilters.maxPrice !== null ? (
+        ) : searchQuery ||
+          activeFilters.category !== 'All' ||
+          activeFilters.condition !== 'All' ||
+          activeFilters.minPrice !== null ||
+          activeFilters.maxPrice !== null ? (
           <>
             {/* Search Results */}
-            <View style={styles.resultsHeader}>
-              <Text style={styles.resultsTitle}>
-                {results.length === 0 
-                  ? 'No results found' 
+            <View style={[styles.resultsHeader, { backgroundColor: colors.background }]}>
+              <Text style={[styles.resultsTitle, { color: colors.onSurface }]}>
+                {results.length === 0
+                  ? 'No results found'
                   : `Found ${results.length} result${results.length !== 1 ? 's' : ''}`}
               </Text>
             </View>
-            
+
             {results.length > 0 ? (
-              <ListingGrid 
-                listing={results} 
+              <ListingGrid
+                listing={results}
                 isLoading={false}
                 refreshing={false}
               />
             ) : (
               <View style={styles.emptyContainer}>
-                <Ionicons name="search-outline" size={60} color={COLORS.mediumGray} />
-                <Text style={styles.emptyTitle}>No listings found</Text>
-                <Text style={styles.emptyText}>
+                <Ionicons name="search-outline" size={60} color={colors.outline} />
+                <Text style={[styles.emptyTitle, { color: colors.onSurface }]}>No listings found</Text>
+                <Text style={[styles.emptyText, { color: colors.secondary }]}>
                   We couldn't find any listings matching your search criteria.
                 </Text>
-                <TouchableOpacity 
-                  style={styles.clearButton} 
+                <TouchableOpacity
+                  style={[styles.clearButton, { backgroundColor: colors.primary }]}
                   onPress={() => {
                     setSearchQuery('');
                     handleClearFilters();
@@ -398,35 +379,35 @@ export default function SearchScreen() {
             {/* Recent Searches */}
             <View style={styles.recentContainer}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.recentTitle}>Recent Searches</Text>
+                <Text style={[styles.recentTitle, { color: colors.onSurface }]}>Recent Searches</Text>
                 {recentSearches.length > 0 && (
                   <TouchableOpacity onPress={handleClearRecentSearches}>
-                    <Text style={styles.clearRecent}>Clear</Text>
+                    <Text style={[styles.clearRecent, { color: colors.primary }]}>Clear</Text>
                   </TouchableOpacity>
                 )}
               </View>
-              
+
               {recentSearches.length > 0 ? (
-                <View style={styles.recentList}>
+                <View style={[styles.recentList, { backgroundColor: colors.surface }]}>
                   {recentSearches.map((item, index) => (
                     <TouchableOpacity
                       key={index}
-                      style={styles.recentItem}
+                      style={[styles.recentItem, { borderBottomColor: colors.outline }]}
                       onPress={() => handleRecentSearchSelect(item)}
                     >
-                      <Ionicons name="time-outline" size={16} color={COLORS.mediumGray} style={styles.recentIcon} />
-                      <Text style={styles.recentText}>{item}</Text>
+                      <Ionicons name="time-outline" size={16} color={colors.secondary} style={styles.recentIcon} />
+                      <Text style={[styles.recentText, { color: colors.onSurface }]}>{item}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               ) : (
-                <Text style={styles.noRecentText}>No recent searches</Text>
+                <Text style={[styles.noRecentText, { color: colors.secondary, backgroundColor: colors.surface }]}>No recent searches</Text>
               )}
             </View>
-            
+
             {/* Popular Categories */}
             <View style={styles.popularContainer}>
-              <Text style={styles.popularTitle}>Popular Categories</Text>
+              <Text style={[styles.popularTitle, { color: colors.onSurface }]}>Popular Categories</Text>
               <View style={styles.popularGrid}>
                 {categories.slice(0, 4).map((category) => (
                   <TouchableOpacity
@@ -436,20 +417,20 @@ export default function SearchScreen() {
                       handleCategorySelect(category);
                     }}
                   >
-                    <View style={styles.popularIcon}>
-                      <Ionicons 
+                    <View style={[styles.popularIcon, { backgroundColor: colors.surface }]}>
+                      <Ionicons
                         name={
                           category === 'Electronics' ? 'laptop-outline' :
-                          category === 'Textbooks' ? 'book-outline' :
-                          category === 'Furniture' ? 'bed-outline' :
-                          category === 'Clothing' ? 'shirt-outline' :
-                          'grid-outline'
-                        } 
-                        size={24} 
-                        color={COLORS.brightOrange} 
+                            category === 'Textbooks' ? 'book-outline' :
+                              category === 'Furniture' ? 'bed-outline' :
+                                category === 'Clothing' ? 'shirt-outline' :
+                                  'grid-outline'
+                        }
+                        size={24}
+                        color={colors.primary}
                       />
                     </View>
-                    <Text style={styles.popularText}>{category}</Text>
+                    <Text style={[styles.popularText, { color: colors.onSurface }]}>{category}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -457,7 +438,7 @@ export default function SearchScreen() {
           </>
         )}
       </View>
-      
+
       {/* SearchFilters Modal */}
       <SearchFilters
         visible={filtersVisible}
@@ -474,16 +455,13 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: COLORS.mediumBlue,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   backButton: {
     padding: 8,
@@ -498,9 +476,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingLeft: 12,
     paddingRight: 4,
-    backgroundColor: COLORS.mediumBlue,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
   },
   filterBarContent: {
@@ -514,30 +490,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginRight: 8,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  filterChipActive: {
-    backgroundColor: 'rgba(255,152,0,0.15)',
-    borderColor: COLORS.brightOrange,
   },
   filterIcon: {
     marginRight: 6,
   },
   filterText: {
-    color: COLORS.textSecondary,
     fontSize: 14,
-  },
-  filterTextActive: {
-    color: COLORS.brightOrange,
-    fontWeight: '500',
   },
   allFiltersButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.brightOrange,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -547,17 +511,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: COLORS.mediumBlue,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   activeFiltersText: {
-    color: COLORS.textSecondary,
     fontSize: 13,
     flex: 1,
   },
   clearFiltersText: {
-    color: COLORS.brightOrange,
     fontSize: 13,
     marginLeft: 16,
   },
@@ -572,23 +532,16 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: COLORS.textSecondary,
   },
   resultsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: COLORS.mediumBlue,
   },
   resultsTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: COLORS.white,
-  },
-  clearFilters: {
-    fontSize: 14,
-    color: COLORS.brightOrange,
   },
   emptyContainer: {
     flex: 1,
@@ -599,25 +552,22 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '500',
-    color: COLORS.white,
     marginTop: 12,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     maxWidth: '80%',
   },
   clearButton: {
-    backgroundColor: COLORS.lightBlue,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
   },
   clearButtonText: {
-    color: COLORS.white,
+    color: 'white',
     fontWeight: '500',
   },
   recentContainer: {
@@ -632,14 +582,11 @@ const styles = StyleSheet.create({
   recentTitle: {
     fontSize: 18,
     fontWeight: '500',
-    color: COLORS.white,
   },
   clearRecent: {
-    color: COLORS.brightOrange,
     fontSize: 14,
   },
   recentList: {
-    backgroundColor: COLORS.cardBackground,
     borderRadius: 8,
     overflow: 'hidden',
   },
@@ -648,19 +595,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   recentIcon: {
     marginRight: 12,
   },
   recentText: {
     fontSize: 14,
-    color: COLORS.textPrimary,
   },
   noRecentText: {
-    color: COLORS.textSecondary,
     padding: 16,
-    backgroundColor: COLORS.cardBackground,
     borderRadius: 8,
     fontStyle: 'italic',
   },
@@ -671,7 +614,6 @@ const styles = StyleSheet.create({
   popularTitle: {
     fontSize: 18,
     fontWeight: '500',
-    color: COLORS.white,
     marginBottom: 12,
   },
   popularGrid: {
@@ -686,7 +628,6 @@ const styles = StyleSheet.create({
   popularIcon: {
     width: '100%',
     aspectRatio: 2,
-    backgroundColor: COLORS.cardBackground,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -694,7 +635,6 @@ const styles = StyleSheet.create({
   },
   popularText: {
     fontSize: 14,
-    color: COLORS.textPrimary,
     textAlign: 'center',
   },
 });
