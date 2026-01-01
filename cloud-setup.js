@@ -36,11 +36,13 @@ async function createUsersCollection(databaseId) {
             'Users',
             [
                 sdk.Permission.read(sdk.Role.users()),
-                sdk.Permission.create(sdk.Role.users()),
-                sdk.Permission.update(sdk.Role.users())
-            ]
+                sdk.Permission.create(sdk.Role.users())
+                // NOTE: No update/delete at collection level!
+                // Document-level permissions handle authorization.
+            ],
+            true  // documentSecurity enabled - CRITICAL for security
         );
-        
+
         console.log('Adding attributes to users collection...');
         const attributes = [
             // userId field removed - we use Appwrite account ID as document ID instead
@@ -56,7 +58,7 @@ async function createUsersCollection(databaseId) {
         await wait(2000); // Wait for attributes to be processed
 
         // userId index removed - no longer needed since we query by document ID directly
-        
+
         console.log('Users collection set up successfully');
         return collection.$id;
     } catch (error) {
@@ -75,10 +77,14 @@ async function createListingsCollection(databaseId) {
             [
                 sdk.Permission.read(sdk.Role.any()),
                 sdk.Permission.create(sdk.Role.users()),
-                sdk.Permission.update(sdk.Role.users())
-            ]
+                sdk.Permission.update(sdk.Role.users()),
+                sdk.Permission.delete(sdk.Role.users())
+                // Collection-level permissions needed here since
+                // document-level permissions control actual access
+            ],
+            true  // documentSecurity enabled
         );
-        
+
         console.log('Adding attributes to listings collection...');
         const attributes = [
             databases.createStringAttribute(databaseId, collection.$id, 'title', 100, true),
@@ -93,10 +99,10 @@ async function createListingsCollection(databaseId) {
             databases.createStringAttribute(databaseId, collection.$id, 'status', 20, false, 'active'),
             databases.createStringAttribute(databaseId, collection.$id, 'primaryImageFileId', 36, false)
         ];
-        
+
         await Promise.all(attributes);
         await wait(2000);
-        
+
         console.log('Creating indexes for listings collection...');
         const indexes = [
             databases.createIndex(
@@ -121,9 +127,9 @@ async function createListingsCollection(databaseId) {
                 ['category']
             )
         ];
-        
+
         await Promise.all(indexes);
-        
+
         console.log('Listings collection set up successfully');
         return collection.$id;
     } catch (error) {
@@ -142,20 +148,22 @@ async function createImagesCollection(databaseId) {
             [
                 sdk.Permission.read(sdk.Role.any()),
                 sdk.Permission.create(sdk.Role.users()),
-                sdk.Permission.update(sdk.Role.users())
-            ]
+                sdk.Permission.update(sdk.Role.users()),
+                sdk.Permission.delete(sdk.Role.users())
+            ],
+            true  // documentSecurity enabled
         );
-        
+
         console.log('Adding attributes to images collection...');
         const attributes = [
             databases.createStringAttribute(databaseId, collection.$id, 'listingId', 36, true),
             databases.createStringAttribute(databaseId, collection.$id, 'fileId', 36, true),
             databases.createIntegerAttribute(databaseId, collection.$id, 'order', false, 0)
         ];
-        
+
         await Promise.all(attributes);
-        await wait(2000); 
-        
+        await wait(2000);
+
         console.log('Creating index for images collection...');
         await databases.createIndex(
             databaseId,
@@ -164,7 +172,7 @@ async function createImagesCollection(databaseId) {
             'key',
             ['listingId']
         );
-        
+
         console.log('Images collection set up successfully');
         return collection.$id;
     } catch (error) {
@@ -183,10 +191,12 @@ async function createChatsCollection(databaseId) {
             [
                 sdk.Permission.read(sdk.Role.users()),
                 sdk.Permission.create(sdk.Role.users()),
-                sdk.Permission.update(sdk.Role.users())
-            ]
+                sdk.Permission.update(sdk.Role.users()),
+                sdk.Permission.delete(sdk.Role.users())
+            ],
+            true  // documentSecurity enabled
         );
-        
+
         console.log('Adding attributes to chats collection...');
         const attributes = [
             databases.createStringAttribute(databaseId, collection.$id, 'listingId', 36, true),
@@ -196,10 +206,10 @@ async function createChatsCollection(databaseId) {
             databases.createDatetimeAttribute(databaseId, collection.$id, 'createdAt', true),
             databases.createDatetimeAttribute(databaseId, collection.$id, 'updatedAt', true)
         ];
-        
+
         await Promise.all(attributes);
         await wait(2000); // Wait for attributes to be processed
-        
+
         console.log('Creating indexes for chats collection...');
         const indexes = [
             databases.createIndex(
@@ -224,9 +234,9 @@ async function createChatsCollection(databaseId) {
                 ['listingId']
             )
         ];
-        
+
         await Promise.all(indexes);
-        
+
         console.log('Chats collection set up successfully');
         return collection.$id;
     } catch (error) {
@@ -246,10 +256,12 @@ async function createMessagesCollection(databaseId) {
             [
                 sdk.Permission.read(sdk.Role.users()),
                 sdk.Permission.create(sdk.Role.users()),
-                sdk.Permission.update(sdk.Role.users())
-            ]
+                sdk.Permission.update(sdk.Role.users()),
+                sdk.Permission.delete(sdk.Role.users())
+            ],
+            true  // documentSecurity enabled
         );
-        
+
         console.log('Adding attributes to messages collection...');
         const attributes = [
             databases.createStringAttribute(databaseId, collection.$id, 'chatId', 36, true),
@@ -258,10 +270,10 @@ async function createMessagesCollection(databaseId) {
             databases.createDatetimeAttribute(databaseId, collection.$id, 'createdAt', true),
             databases.createBooleanAttribute(databaseId, collection.$id, 'isRead', false, false)
         ];
-        
+
         await Promise.all(attributes);
         await wait(2000); // Wait for attributes to be processed
-        
+
         console.log('Creating index for messages collection...');
         await databases.createIndex(
             databaseId,
@@ -270,7 +282,7 @@ async function createMessagesCollection(databaseId) {
             'key',
             ['chatId']
         );
-        
+
         console.log('Messages collection set up successfully');
         return collection.$id;
     } catch (error) {
@@ -294,7 +306,7 @@ async function createStorageBucket() {
             ],
             true  // Enable file previews
         );
-        
+
         console.log('Storage bucket created successfully');
         return bucket.$id;
     } catch (error) {
@@ -307,20 +319,20 @@ async function createStorageBucket() {
 async function setup() {
     try {
         console.log('Starting Appwrite Cloud setup...');
-        
+
         // Step 1: Create database
         const databaseId = await createDatabase();
-        
+
         // Steps 2-6: Create collections
         const usersCollectionId = await createUsersCollection(databaseId);
         const listingsCollectionId = await createListingsCollection(databaseId);
         const imagesCollectionId = await createImagesCollection(databaseId);
         const chatsCollectionId = await createChatsCollection(databaseId);
         const messagesCollectionId = await createMessagesCollection(databaseId);
-        
+
         // Step 7: Create storage bucket
         const bucketId = await createStorageBucket();
-        
+
         // Output configuration information
         console.log('\nSetup complete! Here are your configuration values:');
         console.log('====================================================');
@@ -331,7 +343,7 @@ async function setup() {
         console.log(`EXPO_PUBLIC_CHATS_COLLECTION_ID=${chatsCollectionId}`);
         console.log(`EXPO_PUBLIC_MESSAGES_COLLECTION_ID=${messagesCollectionId}`);
         console.log(`EXPO_PUBLIC_IMAGES_BUCKET_ID=${bucketId}`);
-        
+
         // Create example .env file
         const envContent = `# Appwrite Cloud Configuration (Student Plan)
 EXPO_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
@@ -355,7 +367,7 @@ EXPO_ROUTER_IMPORT_MODE=sync`;
         fs.writeFileSync('.env.cloud', envContent);
         console.log('\nCreated .env.cloud file with all your configuration values.');
         console.log('Copy this file to .env to use these settings in your app.');
-        
+
     } catch (error) {
         console.error('Setup failed:', error);
     }

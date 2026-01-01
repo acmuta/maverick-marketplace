@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, Alert, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ID, Query } from 'react-native-appwrite';
+import { ID, Query, Permission, Role } from 'react-native-appwrite';
 import { databases, DATABASE_ID, CHATS_COLLECTION_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme, Text } from 'react-native-paper';
@@ -43,7 +43,7 @@ export default function NewChatScreen() {
       // 2. Fetch Listing Title needed for chat metadata
       const listing = await databases.getDocument(DATABASE_ID, LISTINGS_COLLECTION_ID, listingId);
 
-      // 3. Create new chat
+      // 3. Create new chat with document-level permissions
       const newChat = await databases.createDocument(
         DATABASE_ID,
         CHATS_COLLECTION_ID,
@@ -53,8 +53,18 @@ export default function NewChatScreen() {
           sellerId: sellerId,
           listingId: listingId,
           listingTitle: listing.title,
+          createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
-        }
+        },
+        [
+          // Both buyer and seller need access to the chat
+          Permission.read(Role.user(currentUser.$id)),
+          Permission.read(Role.user(sellerId)),
+          Permission.update(Role.user(currentUser.$id)),
+          Permission.update(Role.user(sellerId)),
+          Permission.delete(Role.user(currentUser.$id)),
+          Permission.delete(Role.user(sellerId))
+        ]
       );
 
       router.replace(`/chat/${newChat.$id}`);

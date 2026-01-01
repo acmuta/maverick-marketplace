@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ID } from 'react-native-appwrite';
+import { ID, Permission, Role } from 'react-native-appwrite';
 import { account, databases, DATABASE_ID, USERS_COLLECTION_ID } from '../appwrite';
 import { useAuth } from './contexts/AuthContext';
 import { TextInput, Button, Text, useTheme } from 'react-native-paper';
@@ -39,9 +39,23 @@ export default function LoginScreen() {
         const user = await account.create(ID.unique(), email, password, name);
         await authLogin(email, password);
         try {
-          await databases.createDocument(DATABASE_ID || '', USERS_COLLECTION_ID || '', user.$id, {
-            displayName: name.trim(), bio: '', contactEmail: email, createdAt: new Date().toISOString(),
-          });
+          await databases.createDocument(
+            DATABASE_ID || '',
+            USERS_COLLECTION_ID || '',
+            user.$id,
+            {
+              displayName: name.trim(),
+              bio: '',
+              contactEmail: email,
+              createdAt: new Date().toISOString(),
+            },
+            [
+              // User can read and update their own profile
+              Permission.read(Role.users()),  // Other users can see profiles
+              Permission.update(Role.user(user.$id)),
+              Permission.delete(Role.user(user.$id))
+            ]
+          );
         } catch (e) { console.error(e); }
       }
       router.replace('/(tabs)');
