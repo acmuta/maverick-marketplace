@@ -5,9 +5,12 @@ import { account } from '../../appwrite';
 const AuthContext = createContext({
   user: null,
   isLoading: true,
+  isEmailVerified: false,
   login: async (email, password) => { },
   logout: async () => { },
   refreshUser: async () => { },
+  sendVerificationCode: async () => { },
+  verifyCode: async (code) => { },
 });
 
 export const useAuth = () => {
@@ -21,6 +24,9 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Use Appwrite's built-in email verification
+  const isEmailVerified = user?.emailVerification === true;
 
   // Load cached user on mount
   useEffect(() => {
@@ -96,15 +102,92 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Store pending verification userId for the OTP flow
+  const [pendingUserId, setPendingUserId] = useState(null);
+
+  const sendVerificationCode = async (userId = null, email = null) => {
+    try {
+      // Use provided args (for registration flow) or current user state
+      const targetUserId = userId || user?.$id;
+      const targetEmail = email || user?.email;
+
+      if (!targetEmail) throw new Error('No email provided');
+
+      console.log('EMAIL OTP: Sending verification code to', targetEmail);
+
+      // Use Appwrite's built-in Email OTP
+      // This sends a 6-digit code to the user's email via Appwrite's email system
+      const { ID } = await import('react-native-appwrite');
+      const token = await account.createEmailToken(
+        targetUserId || ID.unique(),
+        targetEmail
+      );
+
+      console.log('EMAIL OTP: Token created, userId:', token.userId);
+
+      // Store the userId for verification step
+      setPendingUserId(token.userId);
+      await AsyncStorage.setItem('pendingVerificationUserId', token.userId);
+
+      return true;
+    } catch (error) {
+      console.error('Error sending verification code:', error);
+      throw error;
+    }
+  };
+
+  const verifyCode = async (code) => {
+    try {
+      // Get the userId from state or storage
+      let targetUserId = pendingUserId;
+      if (!targetUserId) {
+        targetUserId = await AsyncStorage.getItem('pendingVerificationUserId');
+      }
+      if (!targetUserId && user) {
+        targetUserId = user.$id;
+      }
+
+      if (!targetUserId) {
+        throw new Error('No pending verification found. Please request a new code.');
+      }
+
+      console.log('EMAIL OTP: Verifying code for userId:', targetUserId);
+
+      // Use the OTP code as the "secret" to create a session
+      // This is how Appwrite Email OTP works - the 6-digit code IS the secret
+      const session = await account.createSession(targetUserId, code);
+
+      console.log('EMAIL OTP: Session created!', session.$id);
+
+      // Clear pending state
+      setPendingUserId(null);
+      await AsyncStorage.removeItem('pendingVerificationUserId');
+
+      // Refresh user to get updated state
+      const freshUser = await account.get();
+      setUser(freshUser);
+      await AsyncStorage.setItem('currentUser', JSON.stringify(freshUser));
+
+      return true;
+    } catch (error) {
+      console.error('Error verifying code:', error);
+      throw error;
+    }
+  };
+
   const value = {
     user,
     isLoading,
+    isEmailVerified,
     login,
     logout,
     refreshUser,
+    sendVerificationCode,
+    verifyCode,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export default AuthContext;
+

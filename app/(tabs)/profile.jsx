@@ -7,10 +7,11 @@ import { Image } from 'expo-image';
 import { useAuth } from '../contexts/AuthContext';
 import { databases, getImageUrl, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID, IMAGES_BUCKET_ID, Query } from '../../appwrite';
 import UserProfileForm from '../components/UserProfileForm';
+import LoginPrompt from '../components/LoginPrompt';
 import { Feather, Ionicons } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser, isEmailVerified, sendVerificationEmail } = useAuth();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [myListings, setMyListings] = useState([]);
@@ -50,12 +51,7 @@ export default function ProfileScreen() {
   };
 
   if (!user) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Text variant="titleLarge">Please log in</Text>
-        <Button mode="contained" onPress={() => router.push('/login')} style={{ marginTop: 16 }}>Log In</Button>
-      </View>
-    )
+    return <LoginPrompt message="Log in to view your profile" icon="person-circle-outline" />;
   }
 
   return (
@@ -84,11 +80,28 @@ export default function ProfileScreen() {
           <Text variant="headlineSmall" style={{ fontWeight: 'bold', marginTop: 16 }}>{user.displayName}</Text>
           <Text variant="bodyMedium" style={{ color: colors.secondary }}>{user.email}</Text>
 
-          {/* Simulated Verified Badge */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, backgroundColor: '#DCFCE7', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}>
-            <Ionicons name="checkmark-circle" size={16} color="#166534" />
-            <Text style={{ color: '#166534', fontWeight: 'bold', marginLeft: 4, fontSize: 12 }}>Verified Student</Text>
-          </View>
+          {/* Verification Badge - Real Status */}
+          {isEmailVerified ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, backgroundColor: '#DCFCE7', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}>
+              <Ionicons name="checkmark-circle" size={16} color="#166534" />
+              <Text style={{ color: '#166534', fontWeight: 'bold', marginLeft: 4, fontSize: 12 }}>Verified Student</Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={async () => {
+                try {
+                  await sendVerificationEmail();
+                  Alert.alert('Email Sent', 'Check your inbox for the verification link.');
+                } catch (e) {
+                  Alert.alert('Error', 'Failed to send verification email.');
+                }
+              }}
+              style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, backgroundColor: '#FEF3C7', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}
+            >
+              <Ionicons name="alert-circle" size={16} color="#92400E" />
+              <Text style={{ color: '#92400E', fontWeight: 'bold', marginLeft: 4, fontSize: 12 }}>Tap to Verify Email</Text>
+            </Pressable>
+          )}
 
           <Button
             mode="text"

@@ -51,6 +51,7 @@ async function createUsersCollection(databaseId) {
             databases.createStringAttribute(databaseId, collection.$id, 'avatarUrl', 255, false),
             databases.createStringAttribute(databaseId, collection.$id, 'contactEmail', 255, false),
             databases.createStringAttribute(databaseId, collection.$id, 'phoneNumber', 20, false),
+            // isVerified removed - using Appwrite's built-in emailVerification instead
             databases.createDatetimeAttribute(databaseId, collection.$id, 'createdAt', true)
         ];
 
@@ -290,6 +291,7 @@ async function createMessagesCollection(databaseId) {
         throw error;
     }
 }
+
 
 // Step 7: Create storage bucket
 async function createStorageBucket() {

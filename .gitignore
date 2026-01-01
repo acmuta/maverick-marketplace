@@ -12,3 +12,5 @@ AGENTS.md
 app/.DS_Store
 OPTIMIZATION_ROADMAP.md
 add-primary-image-field.js
+functions/send-verification-code/function.env
+functions/verify-code/function.env
