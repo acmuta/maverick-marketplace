@@ -8,6 +8,7 @@ import { databases, getImageUrl, DATABASE_ID, IMAGES_COLLECTION_ID, IMAGES_BUCKE
 import { useAuth } from '../contexts/AuthContext';
 import { TextInput, Button, Text, useTheme, HelperText, IconButton, Surface } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
+import LoginPrompt from './LoginPrompt';
 
 export default function ListingForm({ existingListing = null, isEditMode = false }) {
   const insets = useSafeAreaInsets();
@@ -200,7 +201,7 @@ export default function ListingForm({ existingListing = null, isEditMode = false
     }
   };
 
-  if (!currentUser) return <View style={styles.center}><Text>Please log in</Text></View>;
+  if (!currentUser) return <LoginPrompt message="Log in to sell items" icon="pricetag-outline" />;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>

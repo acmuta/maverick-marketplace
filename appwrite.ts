@@ -1,5 +1,4 @@
-import 'react-native-url-polyfill/auto';
-import { Client, Account, Databases, Storage, Query, ID, Permission, Role } from 'react-native-appwrite';
+import { Client, Account, Databases, Storage, Functions, Query, ID, Permission, Role } from 'react-native-appwrite';
 import { Platform } from 'react-native';
 
 const appwriteEndpoint = process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT;
@@ -28,6 +27,7 @@ if (Platform.OS !== 'web' && appwritePlatform) {
 const account = new Account(client);
 const databases = new Databases(client);
 const storage = new Storage(client);
+const functions = new Functions(client);
 
 export const DATABASE_ID = process.env.EXPO_PUBLIC_DATABASE_ID;
 export const USERS_COLLECTION_ID = process.env.EXPO_PUBLIC_USERS_COLLECTION_ID;
@@ -36,6 +36,7 @@ export const IMAGES_COLLECTION_ID = process.env.EXPO_PUBLIC_IMAGES_COLLECTION_ID
 export const IMAGES_BUCKET_ID = process.env.EXPO_PUBLIC_IMAGES_BUCKET_ID;
 export const CHATS_COLLECTION_ID = process.env.EXPO_PUBLIC_CHATS_COLLECTION_ID;
 export const MESSAGES_COLLECTION_ID = process.env.EXPO_PUBLIC_MESSAGES_COLLECTION_ID;
+export const VERIFICATION_CODES_COLLECTION_ID = process.env.EXPO_PUBLIC_VERIFICATION_CODES_COLLECTION_ID;
 
 
 export const getImageUrl = (
@@ -65,4 +66,4 @@ export const getImageUrl = (
   return `${endpoint}/storage/buckets/${bucketId}/files/${fileId}/preview?width=${width}&height=${height}&project=${projectId}`;
 };
 
-export { client, account, databases, storage, Query, ID, Permission, Role };
+export { client, account, databases, storage, functions, Query, ID, Permission, Role };

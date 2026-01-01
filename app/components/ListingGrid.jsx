@@ -72,13 +72,20 @@ export default function ListingGrid({ listing = [], isLoading, onRefresh, refres
       renderItem={renderItem}
       keyExtractor={(item) => item.$id}
       numColumns={COLUMN_COUNT}
-      contentContainerStyle={{ padding: GAP }}
-      columnWrapperStyle={{ gap: GAP }}
+      contentContainerStyle={{ padding: GAP, flexGrow: 1 }}
+      columnWrapperStyle={listing.length > 0 ? { gap: GAP } : null}
       showsVerticalScrollIndicator={false}
       onRefresh={onRefresh}
       refreshing={refreshing}
       onEndReached={onLoadMore}
       onEndReachedThreshold={0.5}
+      ListEmptyComponent={
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 }}>
+          <Text style={{ fontSize: 48, marginBottom: 12 }}>🛍️</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: colors.onBackground }}>No listings yet</Text>
+          <Text style={{ fontSize: 14, color: colors.secondary, marginTop: 4 }}>Be the first to sell something!</Text>
+        </View>
+      }
       ListFooterComponent={loadingMore && <View style={{ padding: 20 }}><Text style={{ textAlign: 'center', color: colors.secondary }}>Loading more...</Text></View>}
     />
   );

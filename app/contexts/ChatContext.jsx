@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ID, Query } from 'react-native-appwrite';
+import { ID, Query, Permission, Role } from 'react-native-appwrite';
 import { databases, DATABASE_ID, CHATS_COLLECTION_ID, MESSAGES_COLLECTION_ID, USERS_COLLECTION_ID } from '../../appwrite';
 import { useAuth } from './AuthContext';
 
@@ -8,10 +8,10 @@ const ChatContext = createContext({
   chats: [],
   isLoadingChats: true,
   getCachedMessages: async () => [],
-  refreshMessages: async () => {},
-  sendMessage: async () => {},
-  refreshChats: async () => {},
-  clearCache: async () => {},
+  refreshMessages: async () => { },
+  sendMessage: async () => { },
+  refreshChats: async () => { },
+  clearCache: async () => { },
 });
 
 export const useChat = () => {
@@ -285,7 +285,13 @@ export const ChatProvider = ({ children }) => {
         DATABASE_ID,
         MESSAGES_COLLECTION_ID,
         ID.unique(),
-        messageData
+        messageData,
+        [
+          // Message sender has full access
+          Permission.read(Role.users()),  // Both chat participants can read
+          Permission.update(Role.user(user.$id)),
+          Permission.delete(Role.user(user.$id))
+        ]
       );
 
       // Update chat's updatedAt timestamp

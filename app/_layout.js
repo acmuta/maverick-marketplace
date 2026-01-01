@@ -13,6 +13,8 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="login" />
+            <Stack.Screen name="verify-email" />
+            <Stack.Screen name="verify/callback" />
             <Stack.Screen name="search" />
             <Stack.Screen name="listing/[id]" />
             <Stack.Screen name="listing/edit/[id]" />

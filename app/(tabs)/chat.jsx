@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
 import { Appbar, Text, useTheme, Avatar, ActivityIndicator, Divider } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
+import LoginPrompt from '../components/LoginPrompt';
 
 export default function ChatTab() {
   const { user: currentUser } = useAuth();
@@ -81,14 +82,7 @@ export default function ChatTab() {
   );
 
   if (!currentUser) {
-    return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
-        <Text variant="titleMedium" style={{ marginBottom: 20 }}>Please log in to view messages.</Text>
-        <TouchableOpacity onPress={() => router.push('/login')} style={{ padding: 10 }}>
-          <Text variant="labelLarge" style={{ color: colors.primary, fontWeight: 'bold' }}>LOG IN</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return <LoginPrompt message="Log in to view your messages" icon="chatbubbles-outline" />;
   }
 
   return (
