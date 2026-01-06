@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
+import { SkeletonGrid } from '../components/Skeleton';
 
 import SearchBar from '../components/SearchBar';
 import ListingGrid from '../components/ListingGrid';
@@ -330,10 +331,7 @@ export default function SearchScreen() {
       {/* Main Content */}
       <View style={styles.content}>
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.secondary }]}>Searching...</Text>
-          </View>
+          <SkeletonGrid />
         ) : searchQuery ||
           activeFilters.category !== 'All' ||
           activeFilters.condition !== 'All' ||

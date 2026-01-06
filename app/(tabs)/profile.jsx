@@ -9,9 +9,10 @@ import { databases, getImageUrl, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLL
 import UserProfileForm from '../components/UserProfileForm';
 import LoginPrompt from '../components/LoginPrompt';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { SkeletonProfile } from '../components/Skeleton';
 
 export default function ProfileScreen() {
-  const { user, logout, refreshUser, isEmailVerified, sendVerificationEmail } = useAuth();
+  const { user, isLoading, logout, refreshUser, isEmailVerified, sendVerificationEmail, deleteAccount } = useAuth();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [myListings, setMyListings] = useState([]);
@@ -50,9 +51,43 @@ export default function ProfileScreen() {
     ])
   };
 
+  const handleDeleteAccount = async () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone. All your listings and data will be permanently removed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccount();
+              Alert.alert('Account Deleted', 'Your account has been deleted.');
+              router.replace('/login');
+            } catch (error) {
+              console.error('Error deleting account:', error);
+              Alert.alert('Error', 'Failed to delete account. Please try again or contact support.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle="dark-content" />
+        <SkeletonProfile />
+      </View>
+    );
+  }
+
   if (!user) {
     return <LoginPrompt message="Log in to view your profile" icon="person-circle-outline" />;
   }
+
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -77,8 +112,13 @@ export default function ProfileScreen() {
               labelStyle={{ fontSize: 40, fontWeight: 'bold' }}
             />
           </View>
-          <Text variant="headlineSmall" style={{ fontWeight: 'bold', marginTop: 16 }}>{user.displayName}</Text>
+          <Text variant="headlineSmall" style={{ fontWeight: 'bold', marginTop: 16 }}>{user.name}</Text>
           <Text variant="bodyMedium" style={{ color: colors.secondary }}>{user.email}</Text>
+          {user.registration && (
+            <Text variant="labelSmall" style={{ color: colors.secondary, marginTop: 4 }}>
+              Member since {new Date(user.registration).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            </Text>
+          )}
 
           {/* Verification Badge - Real Status */}
           {isEmailVerified ? (
@@ -163,6 +203,26 @@ export default function ProfileScreen() {
               )}
             </View>
           )}
+
+          {/* Delete Account Section */}
+          <View style={{ padding: 16, marginTop: 24 }}>
+            <Surface style={{ padding: 16, borderRadius: 16, backgroundColor: '#FEF2F2', elevation: 1 }}>
+              <Text variant="titleSmall" style={{ fontWeight: 'bold', color: colors.error, marginBottom: 8 }}>
+                Danger Zone
+              </Text>
+              <Text variant="bodySmall" style={{ color: colors.secondary, marginBottom: 12 }}>
+                Deleting your account will permanently remove all your data including listings, messages, and profile information.
+              </Text>
+              <Button
+                mode="outlined"
+                onPress={handleDeleteAccount}
+                textColor={colors.error}
+                style={{ borderColor: colors.error }}
+              >
+                Delete Account
+              </Button>
+            </Surface>
+          </View>
         </View>
       </ScrollView>
     </View>

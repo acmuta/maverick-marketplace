@@ -14,3 +14,4 @@ OPTIMIZATION_ROADMAP.md
 add-primary-image-field.js
 functions/send-verification-code/function.env
 functions/verify-code/function.env
+/functions/create-chat/node_modules

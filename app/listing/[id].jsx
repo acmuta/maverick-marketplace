@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Dimensions, Modal, Pressable, StatusBar, StyleSheet, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { Query } from 'react-native-appwrite';
+import { Query, ID, Permission, Role } from 'react-native-appwrite';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Appbar, Text, Button, useTheme, IconButton, ActivityIndicator, Avatar, Divider, Surface } from 'react-native-paper';
+import { Appbar, Text, Button, useTheme, IconButton, ActivityIndicator, Avatar, Divider, Surface, Menu } from 'react-native-paper';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { account, databases, storage, getImageUrl, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, USERS_COLLECTION_ID, IMAGES_BUCKET_ID } from '../../appwrite';
+import { account, databases, storage, getImageUrl, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, USERS_COLLECTION_ID, IMAGES_BUCKET_ID, REPORTS_COLLECTION_ID } from '../../appwrite';
+import { SkeletonListingDetail } from '../components/Skeleton';
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -21,6 +22,7 @@ export default function ListingDetailScreen() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => { fetchData(); }, [id]);
 
@@ -56,14 +58,12 @@ export default function ListingDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Get all image documents for this listing
               const imageDoc = await databases.listDocuments(
                 DATABASE_ID,
                 IMAGES_COLLECTION_ID,
                 [Query.equal('listingId', id)]
               );
 
-              // Delete images from storage and image documents
               for (const doc of imageDoc.documents) {
                 try {
                   await storage.deleteFile(IMAGES_BUCKET_ID, doc.fileId);
@@ -73,7 +73,6 @@ export default function ListingDetailScreen() {
                 }
               }
 
-              // Delete the listing document
               await databases.deleteDocument(DATABASE_ID, LISTINGS_COLLECTION_ID, id);
               Alert.alert('Deleted', 'Listing has been deleted.');
               router.replace('/(tabs)/profile');
@@ -87,7 +86,63 @@ export default function ListingDetailScreen() {
     );
   };
 
-  if (isLoading) return <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={colors.primary} /></View>;
+  const handleReport = () => {
+    setMenuVisible(false);
+
+    Alert.alert(
+      'Report Listing',
+      'Why are you reporting this listing?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Spam', onPress: () => submitReport('spam', 'This listing is spam') },
+        { text: 'Inappropriate', onPress: () => submitReport('inappropriate', 'This listing contains inappropriate content') },
+        { text: 'Scam', onPress: () => submitReport('scam', 'This listing appears to be a scam') },
+        { text: 'Other', onPress: () => submitReport('other', 'Other reason') }
+      ]
+    );
+  };
+
+  const submitReport = async (reason, description) => {
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be logged in to report.');
+      return;
+    }
+
+    try {
+      await databases.createDocument(
+        DATABASE_ID,
+        REPORTS_COLLECTION_ID,
+        ID.unique(),
+        {
+          reporterId: currentUser.$id,
+          reportedItemType: 'listing',
+          reportedItemId: listing.$id,
+          reportedUserId: listing.userId,
+          reason,
+          description,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        },
+        [
+          Permission.read(Role.user(currentUser.$id)),
+          Permission.update(Role.user(currentUser.$id)),
+          Permission.delete(Role.user(currentUser.$id))
+        ]
+      );
+
+      Alert.alert('Report Submitted', 'Thank you for reporting. We will review this listing.');
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      Alert.alert('Error', 'Failed to submit report. Please try again.');
+    }
+  };
+
+  if (isLoading) return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" />
+      <SkeletonListingDetail />
+    </View>
+  );
   if (!listing) return null;
 
   const isOwner = currentUser && currentUser.$id === listing.userId;
@@ -98,12 +153,31 @@ export default function ListingDetailScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Header (Absolute) */}
-        <Pressable
-          style={{ position: 'absolute', top: insets.top + 10, left: 20, zIndex: 10, backgroundColor: 'white', borderRadius: 20, padding: 8, elevation: 4 }}
-          onPress={() => router.back()}
-        >
-          <Feather name="arrow-left" size={24} color="black" />
-        </Pressable>
+        <View style={{ position: 'absolute', top: insets.top + 10, left: 0, right: 0, zIndex: 10, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20 }}>
+          <Pressable
+            style={{ backgroundColor: 'white', borderRadius: 20, padding: 8, elevation: 4 }}
+            onPress={() => router.back()}
+          >
+            <Feather name="arrow-left" size={24} color="black" />
+          </Pressable>
+
+          {!isOwner && currentUser && (
+            <Menu
+              visible={menuVisible}
+              onDismiss={() => setMenuVisible(false)}
+              anchor={
+                <Pressable
+                  style={{ backgroundColor: 'white', borderRadius: 20, padding: 8, elevation: 4 }}
+                  onPress={() => setMenuVisible(true)}
+                >
+                  <Feather name="more-vertical" size={24} color="black" />
+                </Pressable>
+              }
+            >
+              <Menu.Item onPress={handleReport} title="Report Listing" leadingIcon="flag" />
+            </Menu>
+          )}
+        </View>
 
         {/* Image Gallery */}
         <View style={{ height: width, backgroundColor: '#E5E7EB' }}>

@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { StyleSheet, View, Alert } from "react-native";
 import { account, databases, DATABASE_ID, USERS_COLLECTION_ID } from '../../appwrite';
 import { TextInput, Button, Text, useTheme } from 'react-native-paper';
+import { showError, ErrorMessages } from '../utils/errorHandler';
+import { useSnackbar } from './SnackbarManager';
 
 export default function UserProfileForm({ existingProfile, onProfileSaved }) {
   const [displayName, setDisplayName] = useState(existingProfile?.displayName || '');
@@ -10,8 +12,62 @@ export default function UserProfileForm({ existingProfile, onProfileSaved }) {
   const [phoneNumber, setPhoneNumber] = useState(existingProfile?.phoneNumber || '');
   const [isLoading, setIsLoading] = useState(false);
   const { colors } = useTheme();
+  const { showSnackbar } = useSnackbar();
 
-  const saveProfile = async () => { /* ... same logic ... */ };
+  const saveProfile = async () => {
+    if (!displayName.trim()) {
+      showSnackbar('Display name cannot be empty', 'error');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // 1. Update Appwrite account name
+      await account.updateName(displayName);
+
+      // 2. Update user document in users collection if it exists
+      try {
+        if (existingProfile.$id) {
+          await databases.updateDocument(
+            DATABASE_ID,
+            USERS_COLLECTION_ID,
+            existingProfile.$id,
+            {
+              displayName: displayName,
+              bio: bio,
+              contactEmail: contactEmail,
+              phoneNumber: phoneNumber
+            }
+          );
+        }
+      } catch (docError) {
+        console.log('Error updating user document:', docError);
+        // If document doesn't exist, create it
+        if (docError.code === 404) {
+          await databases.createDocument(
+            DATABASE_ID,
+            USERS_COLLECTION_ID,
+            existingProfile.$id,
+            {
+              displayName: displayName,
+              bio: bio,
+              contactEmail: contactEmail,
+              phoneNumber: phoneNumber
+            }
+          );
+        }
+      }
+
+      showSnackbar('Profile updated successfully!', 'success');
+      if (onProfileSaved) onProfileSaved();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      showError(ErrorMessages.UPDATE_FAILED, error);
+      showSnackbar('Failed to update profile. Please try again.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View>

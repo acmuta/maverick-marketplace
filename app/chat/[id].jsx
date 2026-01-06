@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, Alert, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { client, databases, DATABASE_ID, MESSAGES_COLLECTION_ID, CHATS_COLLECTION_ID, USERS_COLLECTION_ID } from '../../appwrite';
+import { client, databases, DATABASE_ID, MESSAGES_COLLECTION_ID, CHATS_COLLECTION_ID, USERS_COLLECTION_ID, BLOCKED_USERS_COLLECTION_ID, ID, Permission, Role, Query } from '../../appwrite';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
-import { Appbar, Text, useTheme, Avatar, ActivityIndicator, IconButton, Surface } from 'react-native-paper';
+import { Appbar, Text, useTheme, Avatar, ActivityIndicator, IconButton, Surface, Menu } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import { SkeletonMessageList } from '../components/Skeleton';
 
 export default function ChatDetailScreen() {
   const { id: chatId } = useLocalSearchParams();
@@ -17,6 +18,7 @@ export default function ChatDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [chatInfo, setChatInfo] = useState(null);
   const [otherUser, setOtherUser] = useState(null);
+  const [menuVisible, setMenuVisible] = useState(false);
   const flatListRef = useRef(null);
   const subscriptionRef = useRef(null);
   const router = useRouter();
@@ -53,7 +55,6 @@ export default function ChatDetailScreen() {
             setMessages(prev => prev.some(m => m.$id === newMsg.$id) ? prev : [...prev, newMsg]);
             markMessageAsRead(newMsg.$id);
           }
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         }
       }
     });
@@ -75,7 +76,6 @@ export default function ChatDetailScreen() {
       setIsLoading(false);
       const unread = freshMessages.filter(m => !m.isRead && m.senderId !== currentUser.$id);
       unread.forEach(m => markMessageAsRead(m.$id));
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 200);
     } catch (e) {
       console.error(e);
       setIsLoading(false);
@@ -98,16 +98,69 @@ export default function ChatDetailScreen() {
     try { await databases.updateDocument(DATABASE_ID, MESSAGES_COLLECTION_ID, msgId, { isRead: true }); } catch (e) { }
   };
 
+  const handleBlockUser = async () => {
+    setMenuVisible(false);
+
+    Alert.alert(
+      'Block User',
+      `Are you sure you want to block ${otherUser?.displayName}? You will no longer see their messages or listings.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            if (!currentUser || !otherUser) return;
+
+            try {
+              const existingBlocks = await databases.listDocuments(
+                DATABASE_ID,
+                BLOCKED_USERS_COLLECTION_ID,
+                [
+                  Query.equal('blockerId', currentUser.$id),
+                  Query.equal('blockedUserId', otherUser.userId)
+                ]
+              );
+
+              if (existingBlocks.documents.length > 0) {
+                Alert.alert('Already Blocked', 'This user is already blocked.');
+                return;
+              }
+
+              await databases.createDocument(
+                DATABASE_ID,
+                BLOCKED_USERS_COLLECTION_ID,
+                ID.unique(),
+                {
+                  blockerId: currentUser.$id,
+                  blockedUserId: otherUser.userId,
+                  createdAt: new Date().toISOString()
+                },
+                [
+                  Permission.read(Role.user(currentUser.$id)),
+                  Permission.delete(Role.user(currentUser.$id))
+                ]
+              );
+
+              Alert.alert('User Blocked', `${otherUser.displayName} has been blocked.`);
+              router.back();
+            } catch (error) {
+              console.error('Error blocking user:', error);
+              Alert.alert('Error', 'Failed to block user. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Send message with optimistic UI update
   const sendMessage = async () => {
     if (!newMessage.trim() || !currentUser) return;
     const content = newMessage.trim();
     setNewMessage('');
     await sendMessageContext(chatId, content,
-      (opt) => {
-        setMessages(prev => [...prev, opt]);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-      },
+      (opt) => setMessages(prev => [...prev, opt]),
       (real, tempId) => setMessages(prev => prev.map(m => m.$id === tempId ? real : m)),
       (err, tempId) => {
         Alert.alert('Error', 'Failed to send');
@@ -154,7 +207,18 @@ export default function ChatDetailScreen() {
     );
   };
 
-  if (isLoading) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.background }}><ActivityIndicator /></View>;
+  if (isLoading) return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Header Skeleton */}
+      <View style={{ paddingTop: insets.top, backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.outline, paddingBottom: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, height: 50 }}>
+          <IconButton icon="arrow-left" onPress={() => router.back()} iconColor={colors.primary} />
+          <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>Loading...</Text>
+        </View>
+      </View>
+      <SkeletonMessageList />
+    </View>
+  );
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -168,6 +232,19 @@ export default function ChatDetailScreen() {
             <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>{otherUser?.displayName || 'Chat'}</Text>
             {chatInfo && <Text variant="labelSmall" style={{ color: colors.secondary }} numberOfLines={1}>{chatInfo.listingTitle}</Text>}
           </View>
+          <Menu
+            visible={menuVisible}
+            onDismiss={() => setMenuVisible(false)}
+            anchor={
+              <IconButton
+                icon="dots-vertical"
+                onPress={() => setMenuVisible(true)}
+                iconColor={colors.primary}
+              />
+            }
+          >
+            <Menu.Item onPress={handleBlockUser} title="Block User" leadingIcon="block-helper" />
+          </Menu>
         </View>
       </View>
 
@@ -177,6 +254,7 @@ export default function ChatDetailScreen() {
         renderItem={renderMessage}
         keyExtractor={item => item.$id}
         contentContainerStyle={{ flexGrow: 1, paddingVertical: 16 }}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
       />
 
       {/* Input */}
