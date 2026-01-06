@@ -126,6 +126,14 @@ async function createListingsCollection(databaseId) {
                 'category_index',
                 'key',
                 ['category']
+            ),
+            databases.createIndex(
+                databaseId,
+                collection.$id,
+                'created_at_idx',
+                'key',
+                ['createdAt'],
+                ['DESC']
             )
         ];
 
@@ -233,6 +241,14 @@ async function createChatsCollection(databaseId) {
                 'listing_index',
                 'key',
                 ['listingId']
+            ),
+            databases.createIndex(
+                databaseId,
+                collection.$id,
+                'updated_at_idx',
+                'key',
+                ['updatedAt'],
+                ['DESC']
             )
         ];
 
@@ -292,6 +308,123 @@ async function createMessagesCollection(databaseId) {
     }
 }
 
+async function createReportsCollection(databaseId) {
+    try {
+        console.log('Creating reports collection...');
+        const collection = await databases.createCollection(
+            databaseId,
+            'reports',
+            'Reports',
+            [
+                sdk.Permission.read(sdk.Role.users()),
+                sdk.Permission.create(sdk.Role.users())
+            ],
+            true  // documentSecurity enabled
+        );
+
+        console.log('Adding attributes to reports collection...');
+        const attributes = [
+            databases.createStringAttribute(databaseId, collection.$id, 'reporterId', 36, true),
+            databases.createStringAttribute(databaseId, collection.$id, 'reportedItemType', 20, true),
+            databases.createStringAttribute(databaseId, collection.$id, 'reportedItemId', 36, true),
+            databases.createStringAttribute(databaseId, collection.$id, 'reportedUserId', 36, false),
+            databases.createStringAttribute(databaseId, collection.$id, 'reason', 100, true),
+            databases.createStringAttribute(databaseId, collection.$id, 'description', 1000, false),
+            databases.createStringAttribute(databaseId, collection.$id, 'status', 20, false, 'pending'),
+            databases.createDatetimeAttribute(databaseId, collection.$id, 'createdAt', true)
+        ];
+
+        await Promise.all(attributes);
+        await wait(2000);
+
+        console.log('Creating indexes for reports collection...');
+        const indexes = [
+            databases.createIndex(
+                databaseId,
+                collection.$id,
+                'reporter_index',
+                'key',
+                ['reporterId']
+            ),
+            databases.createIndex(
+                databaseId,
+                collection.$id,
+                'reported_item_index',
+                'key',
+                ['reportedItemType', 'reportedItemId']
+            ),
+            databases.createIndex(
+                databaseId,
+                collection.$id,
+                'status_index',
+                'key',
+                ['status']
+            )
+        ];
+
+        await Promise.all(indexes);
+
+        console.log('Reports collection set up successfully');
+        return collection.$id;
+    } catch (error) {
+        console.error('Error setting up reports collection:', error);
+        throw error;
+    }
+}
+
+async function createBlockedUsersCollection(databaseId) {
+    try {
+        console.log('Creating blocked users collection...');
+        const collection = await databases.createCollection(
+            databaseId,
+            'blocked_users',
+            'Blocked Users',
+            [
+                sdk.Permission.read(sdk.Role.users()),
+                sdk.Permission.create(sdk.Role.users()),
+                sdk.Permission.delete(sdk.Role.users())
+            ],
+            true  // documentSecurity enabled
+        );
+
+        console.log('Adding attributes to blocked users collection...');
+        const attributes = [
+            databases.createStringAttribute(databaseId, collection.$id, 'blockerId', 36, true),
+            databases.createStringAttribute(databaseId, collection.$id, 'blockedUserId', 36, true),
+            databases.createDatetimeAttribute(databaseId, collection.$id, 'createdAt', true)
+        ];
+
+        await Promise.all(attributes);
+        await wait(2000);
+
+        console.log('Creating indexes for blocked users collection...');
+        const indexes = [
+            databases.createIndex(
+                databaseId,
+                collection.$id,
+                'blocker_index',
+                'key',
+                ['blockerId']
+            ),
+            databases.createIndex(
+                databaseId,
+                collection.$id,
+                'blocker_blocked_index',
+                'key',
+                ['blockerId', 'blockedUserId']
+            )
+        ];
+
+        await Promise.all(indexes);
+
+        console.log('Blocked users collection set up successfully');
+        return collection.$id;
+    } catch (error) {
+        console.error('Error setting up blocked users collection:', error);
+        throw error;
+    }
+}
+
 
 // Step 7: Create storage bucket
 async function createStorageBucket() {
@@ -331,6 +464,8 @@ async function setup() {
         const imagesCollectionId = await createImagesCollection(databaseId);
         const chatsCollectionId = await createChatsCollection(databaseId);
         const messagesCollectionId = await createMessagesCollection(databaseId);
+        const reportsCollectionId = await createReportsCollection(databaseId);
+        const blockedUsersCollectionId = await createBlockedUsersCollection(databaseId);
 
         // Step 7: Create storage bucket
         const bucketId = await createStorageBucket();
@@ -344,6 +479,8 @@ async function setup() {
         console.log(`EXPO_PUBLIC_IMAGES_COLLECTION_ID=${imagesCollectionId}`);
         console.log(`EXPO_PUBLIC_CHATS_COLLECTION_ID=${chatsCollectionId}`);
         console.log(`EXPO_PUBLIC_MESSAGES_COLLECTION_ID=${messagesCollectionId}`);
+        console.log(`EXPO_PUBLIC_REPORTS_COLLECTION_ID=${reportsCollectionId}`);
+        console.log(`EXPO_PUBLIC_BLOCKED_USERS_COLLECTION_ID=${blockedUsersCollectionId}`);
         console.log(`EXPO_PUBLIC_IMAGES_BUCKET_ID=${bucketId}`);
 
         // Create example .env file
@@ -360,6 +497,8 @@ EXPO_PUBLIC_IMAGES_COLLECTION_ID=${imagesCollectionId}
 EXPO_PUBLIC_IMAGES_BUCKET_ID=${bucketId}
 EXPO_PUBLIC_CHATS_COLLECTION_ID=${chatsCollectionId}
 EXPO_PUBLIC_MESSAGES_COLLECTION_ID=${messagesCollectionId}
+EXPO_PUBLIC_REPORTS_COLLECTION_ID=${reportsCollectionId}
+EXPO_PUBLIC_BLOCKED_USERS_COLLECTION_ID=${blockedUsersCollectionId}
 
 # Other settings
 EXPO_ROUTER_APP_ROOT=./app

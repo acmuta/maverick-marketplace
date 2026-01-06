@@ -64,8 +64,8 @@ export default function HomeScreen() {
           listing.imageUrl = getImageUrl(
             IMAGES_BUCKET_ID || '',
             listing.primaryImageFileId || '',
-            600,
-            600
+            250,
+            250
           );
           console.log('DEBUG - Listing:', listing.title, 'FileId:', listing.primaryImageFileId, 'ImageUrl:', listing.imageUrl);
         } else {

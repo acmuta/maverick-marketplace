@@ -97,16 +97,31 @@ export const ChatProvider = ({ children }) => {
     }
 
     try {
-      // Fetch chats where user is either buyer or seller
-      const chatsResponse = await databases.listDocuments(
-        DATABASE_ID,
-        CHATS_COLLECTION_ID,
-        [Query.orderDesc('updatedAt')]
-      );
+      const [buyerChatsResponse, sellerChatsResponse] = await Promise.all([
+        databases.listDocuments(
+          DATABASE_ID,
+          CHATS_COLLECTION_ID,
+          [
+            Query.equal('buyerId', user.$id),
+            Query.orderDesc('updatedAt')
+          ]
+        ),
+        databases.listDocuments(
+          DATABASE_ID,
+          CHATS_COLLECTION_ID,
+          [
+            Query.equal('sellerId', user.$id),
+            Query.orderDesc('updatedAt')
+          ]
+        )
+      ]);
 
-      // Filter chats where the user is either buyer or seller
-      const userChats = chatsResponse.documents.filter(
-        chat => chat.buyerId === user.$id || chat.sellerId === user.$id
+      const chatMap = new Map();
+      [...buyerChatsResponse.documents, ...sellerChatsResponse.documents].forEach(chat => {
+        chatMap.set(chat.$id, chat);
+      });
+      const userChats = Array.from(chatMap.values()).sort((a, b) => 
+        new Date(b.updatedAt) - new Date(a.updatedAt)
       );
 
       // Fetch user profiles for chat participants

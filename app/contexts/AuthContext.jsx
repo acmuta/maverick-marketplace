@@ -11,6 +11,7 @@ const AuthContext = createContext({
   refreshUser: async () => { },
   sendVerificationCode: async () => { },
   verifyCode: async (code) => { },
+  deleteAccount: async () => { },
 });
 
 export const useAuth = () => {
@@ -138,7 +139,6 @@ export const AuthProvider = ({ children }) => {
 
   const verifyCode = async (code) => {
     try {
-      // Get the userId from state or storage
       let targetUserId = pendingUserId;
       if (!targetUserId) {
         targetUserId = await AsyncStorage.getItem('pendingVerificationUserId');
@@ -153,17 +153,13 @@ export const AuthProvider = ({ children }) => {
 
       console.log('EMAIL OTP: Verifying code for userId:', targetUserId);
 
-      // Use the OTP code as the "secret" to create a session
-      // This is how Appwrite Email OTP works - the 6-digit code IS the secret
       const session = await account.createSession(targetUserId, code);
 
       console.log('EMAIL OTP: Session created!', session.$id);
 
-      // Clear pending state
       setPendingUserId(null);
       await AsyncStorage.removeItem('pendingVerificationUserId');
 
-      // Refresh user to get updated state
       const freshUser = await account.get();
       setUser(freshUser);
       await AsyncStorage.setItem('currentUser', JSON.stringify(freshUser));
@@ -171,6 +167,22 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('Error verifying code:', error);
+      throw error;
+    }
+  };
+
+  const deleteAccount = async () => {
+    try {
+      if (!user) throw new Error('No user logged in');
+      
+      await account.updateStatus();
+      
+      setUser(null);
+      await AsyncStorage.removeItem('currentUser');
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting account:', error);
       throw error;
     }
   };
@@ -184,6 +196,7 @@ export const AuthProvider = ({ children }) => {
     refreshUser,
     sendVerificationCode,
     verifyCode,
+    deleteAccount,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
