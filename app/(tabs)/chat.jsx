@@ -99,8 +99,13 @@ export default function ChatTab() {
         <SkeletonChatList />
       ) : chats.length === 0 ? (
         <View style={styles.centerContainer}>
-          <Feather name="message-square" size={48} color={colors.outline} />
-          <Text variant="bodyLarge" style={{ color: colors.secondary, marginTop: 16 }}>No messages yet</Text>
+          <View style={{ backgroundColor: colors.surfaceVariant, padding: 24, borderRadius: 100, marginBottom: 16 }}>
+            <Feather name="message-circle" size={48} color={colors.primary} />
+          </View>
+          <Text variant="titleLarge" style={{ fontWeight: 'bold', color: colors.onSurface }}>No messages yet</Text>
+          <Text variant="bodyMedium" style={{ color: colors.secondary, textAlign: 'center', marginTop: 8, maxWidth: 250 }}>
+            Start a conversation with a seller to ask about an item.
+          </Text>
         </View>
       ) : (
         <FlatList

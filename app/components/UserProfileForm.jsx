@@ -3,6 +3,7 @@ import { StyleSheet, View, Alert } from "react-native";
 import { account, databases, DATABASE_ID, USERS_COLLECTION_ID } from '../../appwrite';
 import { TextInput, Button, Text, useTheme } from 'react-native-paper';
 import { showError, ErrorMessages } from '../utils/errorHandler';
+import { useSnackbar } from './SnackbarManager';
 
 export default function UserProfileForm({ existingProfile, onProfileSaved }) {
   const [displayName, setDisplayName] = useState(existingProfile?.displayName || '');
@@ -11,10 +12,11 @@ export default function UserProfileForm({ existingProfile, onProfileSaved }) {
   const [phoneNumber, setPhoneNumber] = useState(existingProfile?.phoneNumber || '');
   const [isLoading, setIsLoading] = useState(false);
   const { colors } = useTheme();
+  const { showSnackbar } = useSnackbar();
 
   const saveProfile = async () => {
     if (!displayName.trim()) {
-      Alert.alert('Error', 'Display name cannot be empty');
+      showSnackbar('Display name cannot be empty', 'error');
       return;
     }
 
@@ -24,20 +26,8 @@ export default function UserProfileForm({ existingProfile, onProfileSaved }) {
       await account.updateName(displayName);
 
       // 2. Update user document in users collection if it exists
-      // We try/catch this part separately in case the user doc is missing or permissions issue
       try {
         if (existingProfile.$id) {
-          // If existingProfile is the Auth user object, it has $id.
-          // However, we should be updating the *Users Collection* document if we have custom fields like bio/phoneNumber.
-          // But 'existingProfile' passed from ProfileScreen is the 'user' object from AuthContext (which is Account object).
-          // If we want to store Bio/Phone, we need a document in 'users' collection.
-          // Let's assume there is a 'users' collection with same ID as user $id.
-
-          // First check if document exists, if not create it, if yes update it.
-          // But normally we should expect it to exist if we are editing.
-          // Let's try update, if fails, maybe create? 
-          // For now, let's just try updating the collection document.
-
           await databases.updateDocument(
             DATABASE_ID,
             USERS_COLLECTION_ID,
@@ -68,11 +58,12 @@ export default function UserProfileForm({ existingProfile, onProfileSaved }) {
         }
       }
 
-      Alert.alert('Success', 'Profile updated!');
+      showSnackbar('Profile updated successfully!', 'success');
       if (onProfileSaved) onProfileSaved();
     } catch (error) {
       console.error('Error updating profile:', error);
       showError(ErrorMessages.UPDATE_FAILED, error);
+      showSnackbar('Failed to update profile. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }

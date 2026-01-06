@@ -3,6 +3,7 @@ import { View, FlatList, Dimensions, StyleSheet, Pressable } from 'react-native'
 import { Card, Text, useTheme, IconButton } from 'react-native-paper';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { MotiView } from 'moti';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -14,11 +15,17 @@ export default function ListingGrid({ listing = [], isLoading, onRefresh, refres
   const router = useRouter();
   const { colors } = useTheme();
 
-  const renderItem = ({ item }) => (
-    <View style={styles.itemContainer}>
-      <Pressable
-        style={[styles.card, { backgroundColor: colors.surface, borderRadius: 16 }]}
+  const renderItem = ({ item, index }) => (
+    <MotiView
+      from={{ opacity: 0, translateY: 20 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 500, delay: index * 100 }}
+      style={styles.itemContainer}
+    >
+      <Card
+        style={[styles.card, { backgroundColor: colors.surface }]}
         onPress={() => router.push(`/listing/${item.$id}`)}
+        mode="elevated"
       >
         <View style={styles.imageContainer}>
           <Image
@@ -27,24 +34,18 @@ export default function ListingGrid({ listing = [], isLoading, onRefresh, refres
             contentFit="cover"
             transition={200}
           />
-          {/* "New" Badge - Simulated logic (e.g. created within last 3 days) */}
+          {/* "New" Badge */}
           {isNew(item.$createdAt) && (
             <View style={[styles.badge, { backgroundColor: colors.primary }]}>
               <Text style={styles.badgeText}>NEW</Text>
             </View>
           )}
-          {/* Heart Icon Overlay */}
-          {/* <Pressable style={styles.heartBtn}>
-                <Ionicons name="heart-outline" size={16} color="white" />
-            </Pressable> */}
         </View>
 
-        <View style={styles.infoContainer}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text variant="titleLarge" style={{ color: colors.primary, fontWeight: '800' }}>
-              ${item.price}
-            </Text>
-          </View>
+        <Card.Content style={styles.infoContainer}>
+          <Text variant="titleMedium" style={{ color: colors.primary, fontWeight: '800' }}>
+            ${item.price}
+          </Text>
 
           <Text variant="bodyMedium" numberOfLines={1} style={{ fontWeight: '600', marginTop: 2, color: colors.onSurface }}>
             {item.title}
@@ -53,9 +54,9 @@ export default function ListingGrid({ listing = [], isLoading, onRefresh, refres
           <Text variant="labelSmall" style={{ color: colors.secondary, marginTop: 4 }} numberOfLines={1}>
             {item.category} • {item.condition}
           </Text>
-        </View>
-      </Pressable>
-    </View>
+        </Card.Content>
+      </Card>
+    </MotiView>
   );
 
   const isNew = (dateString) => {
@@ -80,10 +81,18 @@ export default function ListingGrid({ listing = [], isLoading, onRefresh, refres
       onEndReached={onLoadMore}
       onEndReachedThreshold={0.5}
       ListEmptyComponent={
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 }}>
-          <Text style={{ fontSize: 48, marginBottom: 12 }}>🛍️</Text>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: colors.onBackground }}>No listings yet</Text>
-          <Text style={{ fontSize: 14, color: colors.secondary, marginTop: 4 }}>Be the first to sell something!</Text>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80, paddingHorizontal: 32 }}>
+          <MotiView
+            from={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'timing', duration: 700 }}
+          >
+            <Ionicons name="bag-handle-outline" size={80} color={colors.surfaceVariant} />
+          </MotiView>
+          <Text variant="titleLarge" style={{ marginTop: 24, fontWeight: 'bold', color: colors.secondary }}>No listings found</Text>
+          <Text variant="bodyMedium" style={{ textAlign: 'center', color: colors.outline, marginTop: 8 }}>
+            There are no items matching your criteria right now. Check back later or try different filters.
+          </Text>
         </View>
       }
       ListFooterComponent={loadingMore && <View style={{ padding: 20 }}><Text style={{ textAlign: 'center', color: colors.secondary }}>Loading more...</Text></View>}
@@ -97,21 +106,17 @@ const styles = StyleSheet.create({
     marginBottom: GAP,
   },
   card: {
+    borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    // Subtle shadow (physics)
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
   },
   imageContainer: {
     width: '100%',
-    aspectRatio: 0.8, // 4:5 Portrait
+    aspectRatio: 0.8,
     position: 'relative',
     backgroundColor: '#F3F4F6',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
@@ -133,12 +138,4 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  heartBtn: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 20,
-    padding: 6,
-  }
 });

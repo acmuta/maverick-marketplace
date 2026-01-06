@@ -10,11 +10,13 @@ import { TextInput, Button, Text, useTheme, HelperText, IconButton, Surface } fr
 import { Feather } from '@expo/vector-icons';
 import LoginPrompt from './LoginPrompt';
 import { showError, ErrorMessages } from '../utils/errorHandler';
+import { useSnackbar } from './SnackbarManager';
 
 export default function ListingForm({ existingListing = null, isEditMode = false }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
+  const { showSnackbar } = useSnackbar();
 
   const [title, setTitle] = useState(existingListing?.title || '');
   const [description, setDescription] = useState(existingListing?.description || '');
@@ -60,7 +62,10 @@ export default function ListingForm({ existingListing = null, isEditMode = false
           text: 'Camera',
           onPress: async () => {
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== 'granted') return Alert.alert('Permission needed', 'Camera access is required.');
+            if (status !== 'granted') {
+              showSnackbar('Camera access is required', 'error');
+              return;
+            }
             let result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.5 });
             if (!result.canceled) setImages([...images, result.assets[0].uri]);
           }
@@ -69,7 +74,10 @@ export default function ListingForm({ existingListing = null, isEditMode = false
           text: 'Gallery',
           onPress: async () => {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted') return Alert.alert('Permission needed', 'Gallery access is required.');
+            if (status !== 'granted') {
+              showSnackbar('Gallery access is required', 'error');
+              return;
+            }
             let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.5 });
             if (!result.canceled) setImages([...images, result.assets[0].uri]);
           }
@@ -91,7 +99,7 @@ export default function ListingForm({ existingListing = null, isEditMode = false
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      Alert.alert('Error', 'Please fix the errors before submitting.');
+      showSnackbar('Please fix the errors before submitting', 'error');
       return;
     }
 
@@ -191,12 +199,13 @@ export default function ListingForm({ existingListing = null, isEditMode = false
         );
       }
 
-      Alert.alert('Success', isEditMode ? 'Listing updated!' : 'Listing posted!');
+      showSnackbar(isEditMode ? 'Listing updated successfully!' : 'Listing posted successfully!', 'success');
       router.replace('/(tabs)/profile');
 
     } catch (error) {
       console.error('Submission error:', error);
       showError(ErrorMessages.UPLOAD_FAILED, error);
+      showSnackbar('Failed to submit listing. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
     }
