@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { TextInput, Button, Text, useTheme, HelperText, IconButton, Surface } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
 import LoginPrompt from './LoginPrompt';
+import { showError, ErrorMessages } from '../utils/errorHandler';
 
 export default function ListingForm({ existingListing = null, isEditMode = false }) {
   const insets = useSafeAreaInsets();
@@ -125,7 +126,7 @@ export default function ListingForm({ existingListing = null, isEditMode = false
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Upload failed:', response.status, errorText);
-          throw new Error(`Upload failed: HTTP ${response.status}`);
+          throw new Error(`Upload failed: HTTP ${response.status} - ${errorText}`);
         }
 
         const fileData = await response.json();
@@ -195,7 +196,7 @@ export default function ListingForm({ existingListing = null, isEditMode = false
 
     } catch (error) {
       console.error('Submission error:', error);
-      Alert.alert('Error', 'Failed to submit listing. Please try again.');
+      showError(ErrorMessages.UPLOAD_FAILED, error);
     } finally {
       setIsSubmitting(false);
     }

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Appbar, Text, Button, useTheme, IconButton, ActivityIndicator, Avatar, Divider, Surface, Menu } from 'react-native-paper';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { account, databases, storage, getImageUrl, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_COLLECTION_ID, USERS_COLLECTION_ID, IMAGES_BUCKET_ID, REPORTS_COLLECTION_ID } from '../../appwrite';
+import { SkeletonListingDetail } from '../components/Skeleton';
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -87,7 +88,7 @@ export default function ListingDetailScreen() {
 
   const handleReport = () => {
     setMenuVisible(false);
-    
+
     Alert.alert(
       'Report Listing',
       'Why are you reporting this listing?',
@@ -128,7 +129,7 @@ export default function ListingDetailScreen() {
           Permission.delete(Role.user(currentUser.$id))
         ]
       );
-      
+
       Alert.alert('Report Submitted', 'Thank you for reporting. We will review this listing.');
     } catch (error) {
       console.error('Error submitting report:', error);
@@ -136,7 +137,12 @@ export default function ListingDetailScreen() {
     }
   };
 
-  if (isLoading) return <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={colors.primary} /></View>;
+  if (isLoading) return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" />
+      <SkeletonListingDetail />
+    </View>
+  );
   if (!listing) return null;
 
   const isOwner = currentUser && currentUser.$id === listing.userId;
@@ -154,7 +160,7 @@ export default function ListingDetailScreen() {
           >
             <Feather name="arrow-left" size={24} color="black" />
           </Pressable>
-          
+
           {!isOwner && currentUser && (
             <Menu
               visible={menuVisible}

@@ -6,8 +6,10 @@ import { databases, getImageUrl, DATABASE_ID, LISTINGS_COLLECTION_ID, IMAGES_BUC
 import ListingGrid from '../components/ListingGrid';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
+import { showError } from '../utils/errorHandler';
 import { Appbar, Text, useTheme, ActivityIndicator, FAB, Surface, IconButton } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
+import { SkeletonGrid } from '../components/Skeleton';
 
 export default function HomeScreen() {
   const [listings, setListings] = useState<any[]>([]); // Fix state type
@@ -86,7 +88,11 @@ export default function HomeScreen() {
 
     } catch (error) {
       console.error('Error fetching listings:', error);
-      setError(error instanceof Error ? error.message : "Unknown error fetching listings");
+      const message = error instanceof Error ? error.message : "Unknown error fetching listings";
+      setError(message);
+      if (__DEV__) {
+        showError('Failed to fetch listings', error as any);
+      }
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -134,9 +140,7 @@ export default function HomeScreen() {
 
       <View style={styles.mainContent}>
         {isLoading && !refreshing ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
+          <SkeletonGrid />
         ) : (
           <ListingGrid
             listing={listings as any}

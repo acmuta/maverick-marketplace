@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ID, Query, Permission, Role } from 'react-native-appwrite';
-import { databases, DATABASE_ID, CHATS_COLLECTION_ID, MESSAGES_COLLECTION_ID, USERS_COLLECTION_ID } from '../../appwrite';
+import { databases, DATABASE_ID, CHATS_COLLECTION_ID, MESSAGES_COLLECTION_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
 import { useAuth } from './AuthContext';
 
 const ChatContext = createContext({
@@ -120,7 +120,7 @@ export const ChatProvider = ({ children }) => {
       [...buyerChatsResponse.documents, ...sellerChatsResponse.documents].forEach(chat => {
         chatMap.set(chat.$id, chat);
       });
-      const userChats = Array.from(chatMap.values()).sort((a, b) => 
+      const userChats = Array.from(chatMap.values()).sort((a, b) =>
         new Date(b.updatedAt) - new Date(a.updatedAt)
       );
 
@@ -130,21 +130,29 @@ export const ChatProvider = ({ children }) => {
           const otherUserId = chat.buyerId === user.$id ? chat.sellerId : chat.buyerId;
 
           try {
-            const otherUserProfile = await databases.getDocument(
-              DATABASE_ID,
-              USERS_COLLECTION_ID,
-              otherUserId
-            );
+            const [otherUserProfile, listingData] = await Promise.all([
+              databases.getDocument(
+                DATABASE_ID,
+                USERS_COLLECTION_ID,
+                otherUserId
+              ),
+              databases.getDocument(
+                DATABASE_ID,
+                LISTINGS_COLLECTION_ID,
+                chat.listingId
+              ).catch(() => null) // Handle deleted listings gracefully
+            ]);
 
             return {
               ...chat,
+              listingTitle: listingData ? listingData.title : (chat.listingTitle || 'Unknown Listing'),
               otherUser: {
                 userId: otherUserId,
                 displayName: otherUserProfile.displayName || 'Unknown User'
               }
             };
           } catch (error) {
-            console.log(`Error fetching profile for user ${otherUserId}:`, error);
+            console.log(`Error fetching details for chat ${chat.$id}:`, error);
             return {
               ...chat,
               otherUser: {

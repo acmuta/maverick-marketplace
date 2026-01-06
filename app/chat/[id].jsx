@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
 import { Appbar, Text, useTheme, Avatar, ActivityIndicator, IconButton, Surface, Menu } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import { SkeletonMessageList } from '../components/Skeleton';
 
 export default function ChatDetailScreen() {
   const { id: chatId } = useLocalSearchParams();
@@ -99,7 +100,7 @@ export default function ChatDetailScreen() {
 
   const handleBlockUser = async () => {
     setMenuVisible(false);
-    
+
     Alert.alert(
       'Block User',
       `Are you sure you want to block ${otherUser?.displayName}? You will no longer see their messages or listings.`,
@@ -110,7 +111,7 @@ export default function ChatDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             if (!currentUser || !otherUser) return;
-            
+
             try {
               const existingBlocks = await databases.listDocuments(
                 DATABASE_ID,
@@ -206,7 +207,18 @@ export default function ChatDetailScreen() {
     );
   };
 
-  if (isLoading) return <View style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.background }}><ActivityIndicator /></View>;
+  if (isLoading) return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Header Skeleton */}
+      <View style={{ paddingTop: insets.top, backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.outline, paddingBottom: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, height: 50 }}>
+          <IconButton icon="arrow-left" onPress={() => router.back()} iconColor={colors.primary} />
+          <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>Loading...</Text>
+        </View>
+      </View>
+      <SkeletonMessageList />
+    </View>
+  );
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -224,9 +236,9 @@ export default function ChatDetailScreen() {
             visible={menuVisible}
             onDismiss={() => setMenuVisible(false)}
             anchor={
-              <IconButton 
-                icon="dots-vertical" 
-                onPress={() => setMenuVisible(true)} 
+              <IconButton
+                icon="dots-vertical"
+                onPress={() => setMenuVisible(true)}
                 iconColor={colors.primary}
               />
             }

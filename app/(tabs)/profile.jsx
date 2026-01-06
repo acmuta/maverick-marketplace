@@ -9,9 +9,10 @@ import { databases, getImageUrl, DATABASE_ID, USERS_COLLECTION_ID, LISTINGS_COLL
 import UserProfileForm from '../components/UserProfileForm';
 import LoginPrompt from '../components/LoginPrompt';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { SkeletonProfile } from '../components/Skeleton';
 
 export default function ProfileScreen() {
-  const { user, logout, refreshUser, isEmailVerified, sendVerificationEmail, deleteAccount } = useAuth();
+  const { user, isLoading, logout, refreshUser, isEmailVerified, sendVerificationEmail, deleteAccount } = useAuth();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [myListings, setMyListings] = useState([]);
@@ -74,9 +75,19 @@ export default function ProfileScreen() {
     );
   };
 
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle="dark-content" />
+        <SkeletonProfile />
+      </View>
+    );
+  }
+
   if (!user) {
     return <LoginPrompt message="Log in to view your profile" icon="person-circle-outline" />;
   }
+
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -101,7 +112,7 @@ export default function ProfileScreen() {
               labelStyle={{ fontSize: 40, fontWeight: 'bold' }}
             />
           </View>
-          <Text variant="headlineSmall" style={{ fontWeight: 'bold', marginTop: 16 }}>{user.displayName}</Text>
+          <Text variant="headlineSmall" style={{ fontWeight: 'bold', marginTop: 16 }}>{user.name}</Text>
           <Text variant="bodyMedium" style={{ color: colors.secondary }}>{user.email}</Text>
           {user.registration && (
             <Text variant="labelSmall" style={{ color: colors.secondary, marginTop: 4 }}>

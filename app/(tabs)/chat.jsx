@@ -7,6 +7,7 @@ import { useChat } from '../contexts/ChatContext';
 import { Appbar, Text, useTheme, Avatar, ActivityIndicator, Divider } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
 import LoginPrompt from '../components/LoginPrompt';
+import { SkeletonChatList } from '../components/Skeleton';
 
 export default function ChatTab() {
   const { user: currentUser } = useAuth();
@@ -95,9 +96,7 @@ export default function ChatTab() {
       </View>
 
       {isLoadingChats && !refreshing ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
-        </View>
+        <SkeletonChatList />
       ) : chats.length === 0 ? (
         <View style={styles.centerContainer}>
           <Feather name="message-square" size={48} color={colors.outline} />
