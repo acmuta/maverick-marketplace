@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, Alert, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ID, Query, Permission, Role } from 'react-native-appwrite';
-import { databases, DATABASE_ID, CHATS_COLLECTION_ID, USERS_COLLECTION_ID, LISTINGS_COLLECTION_ID } from '../../appwrite';
+import { Query } from 'react-native-appwrite';
+import { databases, functions, DATABASE_ID, CHATS_COLLECTION_ID } from '../../appwrite';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme, Text } from 'react-native-paper';
+
+// Function ID deployed to Appwrite Cloud
+const CREATE_CHAT_FUNCTION_ID = 'create-chat';
 
 export default function NewChatScreen() {
   const { listingId, sellerId } = useLocalSearchParams();
@@ -23,8 +26,13 @@ export default function NewChatScreen() {
 
   const checkAndCreateChat = async () => {
     try {
-      // 1. Check if chat already exists
-      const existingChats = await databases.listDocuments(
+      console.log('DEBUG - Creating chat via function:');
+      console.log('  currentUser.$id:', currentUser.$id);
+      console.log('  sellerId:', sellerId);
+      console.log('  listingId:', listingId);
+
+      // 1. Check if chat already exists (quick client-side check)
+      const existing_chats = await databases.listDocuments(
         DATABASE_ID,
         CHATS_COLLECTION_ID,
         [
@@ -34,44 +42,42 @@ export default function NewChatScreen() {
         ]
       );
 
-      if (existingChats.documents.length > 0) {
-        // Chat exists, redirect
-        router.replace(`/chat/${existingChats.documents[0].$id}`);
+      if (existing_chats.documents.length > 0) {
+        console.log('  Existing chat found:', existing_chats.documents[0].$id);
+        router.replace(`/chat/${existing_chats.documents[0].$id}`);
         return;
       }
 
-      // 2. Fetch Listing Title needed for chat metadata
-      const listing = await databases.getDocument(DATABASE_ID, LISTINGS_COLLECTION_ID, listingId);
-
-      // 3. Create new chat with document-level permissions
-      const newChat = await databases.createDocument(
-        DATABASE_ID,
-        CHATS_COLLECTION_ID,
-        ID.unique(),
-        {
-          buyerId: currentUser.$id,
-          sellerId: sellerId,
-          listingId: listingId,
-          listingTitle: listing.title,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        [
-          // Both buyer and seller need access to the chat
-          Permission.read(Role.user(currentUser.$id)),
-          Permission.read(Role.user(sellerId)),
-          Permission.update(Role.user(currentUser.$id)),
-          Permission.update(Role.user(sellerId)),
-          Permission.delete(Role.user(currentUser.$id)),
-          Permission.delete(Role.user(sellerId))
-        ]
+      // 2. Call Appwrite Function to create chat with proper permissions
+      // The function uses Server SDK which can set permissions for both users
+      console.log('  Calling create-chat function...');
+      const execution = await functions.createExecution(
+        CREATE_CHAT_FUNCTION_ID,
+        JSON.stringify({
+          listing_id: listingId,
+          seller_id: sellerId
+        }),
+        false,  // async = false (wait for result)
+        '/',    // path
+        'POST'  // method
       );
 
-      router.replace(`/chat/${newChat.$id}`);
+      console.log('  Function response status:', execution.responseStatusCode);
+      console.log('  Function response:', execution.responseBody);
+
+      // Parse the response
+      const response = JSON.parse(execution.responseBody);
+
+      if (response.success) {
+        console.log('  Chat created/found:', response.chat_id);
+        router.replace(`/chat/${response.chat_id}`);
+      } else {
+        throw new Error(response.error || 'Failed to create chat');
+      }
 
     } catch (error) {
       console.error('Error creating chat:', error);
-      Alert.alert('Error', 'Failed to start chat.');
+      Alert.alert('Error', 'Failed to start chat. Please try again.');
       router.back();
     }
   };

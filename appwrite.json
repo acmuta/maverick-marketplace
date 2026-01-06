@@ -1,0 +1,22 @@
+{
+    "projectId": "681c3d4b003581558a89",
+    "projectName": "maverick-marketplace",
+    "functions": [
+        {
+            "$id": "create-chat",
+            "name": "Create Chat",
+            "runtime": "node-18.0",
+            "execute": [
+                "users"
+            ],
+            "events": [],
+            "schedule": "",
+            "timeout": 15,
+            "enabled": true,
+            "logging": true,
+            "entrypoint": "src/main.js",
+            "commands": "npm install",
+            "path": "functions/create-chat"
+        }
+    ]
+}
